@@ -1,114 +1,136 @@
 --[[
-    Redz Hub Script - Display Image by ID in Right Corner
-    Image ID: 129898296854108
-    Compatible: All Executors
+    Script Redz Hub - Hiển Thị Ảnh Góc Phải (Đã Fix Cho Delta Mobile)
+    ID Ảnh: 129898296854108
+    Tương thích: Delta Executor Mobile
 --]]
 
--- Load RedzLib
-local RedzLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/REDzHUB/RedzLib/main/Library.lua"))()
+-- Load RedzLib (đường dẫn dự phòng)
+local RedzLib
+local success, err = pcall(function()
+    RedzLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/REDzHUB/RedzLib/main/Library.lua"))()
+end)
 
--- Create Window
-local Window = RedzLib:CreateWindow("Redz Hub - Right Corner Image", "By Redz Hub", Vector2.new(400, 300), Enum.KeyCode.RightControl)
-local Tab = Window:CreateTab("Image Control")
+if not success then
+    -- Load thẳng script không cần RedzLib nếu thư viện lỗi
+    warn("RedzLib load failed, running standalone mode: " .. tostring(err))
+end
 
--- Roblox Image ID
+-- ID ảnh
 local IMAGE_ID = "129898296854108"
 local IMAGE_LINK = "rbxassetid://" .. IMAGE_ID
 
--- Create ScreenGui
+-- Tạo ScreenGui (dùng g:GetService thay vì game:GetService để tránh lỗi Delta)
+local g = game
+local CoreGui = g:GetService("CoreGui")
+
+-- Xóa GUI cũ nếu có
+if CoreGui:FindFirstChild("RedzRightImage") then
+    CoreGui.RedzRightImage:Destroy()
+end
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "RedzRightImage"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = game:GetService("CoreGui")
 
--- Create Container Frame
+-- Thử parent vào CoreGui, nếu lỗi thì dùng PlayerGui
+local success2, err2 = pcall(function()
+    ScreenGui.Parent = CoreGui
+end)
+
+if not success2 then
+    local Player = g:GetService("Players").LocalPlayer
+    if Player and Player:FindFirstChild("PlayerGui") then
+        ScreenGui.Parent = Player.PlayerGui
+    end
+end
+
+-- Tạo khung chứa
 local Frame = Instance.new("Frame")
 Frame.Name = "ImageFrame"
-Frame.Size = UDim2.new(0, 310, 0, 310)
-Frame.Position = UDim2.new(1, -320, 0, 10)
-Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Frame.Size = UDim2.new(0, 250, 0, 250)
+Frame.Position = UDim2.new(1, -260, 0, 10)
+Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Frame.BorderSizePixel = 0
 Frame.Active = true
 Frame.Draggable = true
 Frame.Parent = ScreenGui
 
--- Corner Radius
+-- Bo góc
 local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.CornerRadius = UDim.new(0, 8)
 UICorner.Parent = Frame
 
--- Red Border
+-- Viền
 local Stroke = Instance.new("UIStroke")
 Stroke.Thickness = 2
 Stroke.Color = Color3.fromRGB(255, 50, 50)
 Stroke.Parent = Frame
 
--- Main Image
+-- Ảnh chính
 local Image = Instance.new("ImageLabel")
 Image.Name = "RedzImage"
 Image.Image = IMAGE_LINK
 Image.BackgroundTransparency = 1
-Image.Size = UDim2.new(1, -10, 1, -10)
-Image.Position = UDim2.new(0, 5, 0, 5)
+Image.Size = UDim2.new(1, -8, 1, -8)
+Image.Position = UDim2.new(0, 4, 0, 4)
 Image.ScaleType = Enum.ScaleType.Fit
 Image.Parent = Frame
 
--- Close Button (X)
+-- Nút đóng
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Name = "CloseButton"
-CloseBtn.Text = "✕"
+CloseBtn.Name = "Close"
+CloseBtn.Text = "X"
 CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.TextSize = 18
+CloseBtn.TextSize = 16
 CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 40, 40)
+CloseBtn.Size = UDim2.new(0, 25, 0, 25)
+CloseBtn.Position = UDim2.new(1, -28, 0, 3)
 CloseBtn.ZIndex = 10
 CloseBtn.Parent = Frame
 
--- Close Button Corner
 local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 15)
+CloseCorner.CornerRadius = UDim.new(0, 12)
 CloseCorner.Parent = CloseBtn
 
--- Close Event
 CloseBtn.MouseButton1Click:Connect(function()
     Frame.Visible = false
 end)
 
--- ===== CONTROL BUTTONS =====
-Tab:CreateLabel("Image ID: " .. IMAGE_ID)
+-- Nút hiện lại (tạo riêng 1 nút nhỏ góc phải khi ảnh bị ẩn)
+local ShowBtn = Instance.new("TextButton")
+ShowBtn.Name = "ShowBtn"
+ShowBtn.Text = "🖼️"
+ShowBtn.TextSize = 20
+ShowBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+ShowBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ShowBtn.Size = UDim2.new(0, 40, 0, 40)
+ShowBtn.Position = UDim2.new(1, -50, 0, 10)
+ShowBtn.ZIndex = 99
+ShowBtn.Visible = false
+ShowBtn.Active = true
+ShowBtn.Draggable = true
+ShowBtn.Parent = ScreenGui
 
-Tab:CreateButton("Show Image 👁️", function()
+local ShowCorner = Instance.new("UICorner")
+ShowCorner.CornerRadius = UDim.new(0, 20)
+ShowCorner.Parent = ShowBtn
+
+ShowBtn.MouseButton1Click:Connect(function()
     Frame.Visible = true
+    ShowBtn.Visible = false
 end)
 
-Tab:CreateButton("Hide Image ❌", function()
+CloseBtn.MouseButton1Click:Connect(function()
     Frame.Visible = false
+    ShowBtn.Visible = true
 end)
 
-Tab:CreateTextBox("Change Image ID 🖼️", IMAGE_ID, function(text)
-    Image.Image = "rbxassetid://" .. text
-end)
-
-Tab:CreateSlider("Size 📏", 100, 500, 300, function(value)
-    Frame.Size = UDim2.new(0, value + 10, 0, value + 10)
-end)
-
-Tab:CreateSlider("Transparency 🌫️", 0, 1, 0, function(value)
-    Image.ImageTransparency = value
-end)
-
-Tab:CreateButton("Reset Position 🔄", function()
-    Frame.Position = UDim2.new(1, -320, 0, 10)
-end)
-
-Tab:CreateButton("Refresh Image 🔄", function()
-    Image.Image = ""
-    wait(0.1)
-    Image.Image = IMAGE_LINK
-end)
-
--- Startup Notification
-RedzLib:Notification("Redz Hub", "Image loaded! ID: " .. IMAGE_ID .. " | Check right corner.", 5)
+-- Thông báo thành công
+print("====================================")
+print(" Redz Hub - Ảnh Góc Phải Đã Chạy")
+print(" ID Ảnh: " .. IMAGE_ID)
+print(" Delta Mobile Compatible")
+print(" Nút đỏ để hiện lại ảnh nếu tắt")
+print("====================================")
