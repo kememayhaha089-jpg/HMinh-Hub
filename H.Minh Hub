@@ -1,11 +1,10 @@
 --[[
-    REDZ HUB - BLOX FRUITS SCRIPT FULL
-    TẤT CẢ TÍNH NĂNG ĐÃ TEST - DELTA MOBILE COMPATIBLE
+    REDZ HUB - BLOX FRUITS SCRIPT FULL V2
+    CÓ NÚT BẬT/TẮT BÊN TRÁI MÀN HÌNH + FULL CHỨC NĂNG
+    Tương thích: Delta Mobile, CodeX, Arceus X
     ID Ảnh: 129898296854108
-    Version: 3.0 Final Fix
 --]]
 
--- ===== KHỞI TẠO =====
 local g = game
 local Players = g:GetService("Players")
 local LP = Players.LocalPlayer
@@ -19,81 +18,123 @@ local UIS = g:GetService("UserInputService")
 local RS = g:GetService("ReplicatedStorage")
 local WS = g:GetService("Workspace")
 local CG = g:GetService("CoreGui")
+local RunService = g:GetService("RunService")
 
--- Auto Reconnect
+-- Auto reconnect character
 LP.CharacterAdded:Connect(function(c)
     Char = c
     HRP = Char:WaitForChild("HumanoidRootPart")
     Hum = Char:WaitForChild("Humanoid")
+    wait(1)
+    if FlyEnabled then EnableFly() end
+    if NoClipEnabled then EnableNoClip() end
 end)
 
 -- ===== FUNCTIONS =====
 local function TweenTo(pos)
     local tween = TS:Create(HRP, TweenInfo.new(0.5), {CFrame = pos})
     tween:Play()
-    tween.Completed:Wait()
 end
 
 local function TeleportTo(pos)
-    if HRP then
-        HRP.CFrame = pos
-    end
+    if HRP then HRP.CFrame = pos end
 end
 
 local function Click()
     VIM:SendMouseButtonEvent(0, 0, 0, true, g, 0)
-    wait(0.05)
+    task.wait(0.05)
     VIM:SendMouseButtonEvent(0, 0, 0, false, g, 0)
 end
 
 local function GetNearestEnemy(name)
     local nearest, minDist = nil, math.huge
     for _, v in pairs(WS.Enemies:GetChildren()) do
-        if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") and string.find(v.Name, name) then
-            local dist = (HRP.Position - v.HumanoidRootPart.Position).Magnitude
-            if dist < minDist then
-                minDist = dist
-                nearest = v
+        if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
+            if string.find(string.lower(v.Name), string.lower(name)) then
+                local dist = (HRP.Position - v.HumanoidRootPart.Position).Magnitude
+                if dist < minDist then
+                    minDist = dist
+                    nearest = v
+                end
             end
         end
     end
     return nearest
 end
 
--- ===== UI TẠO BẰNG TAY (KHÔNG CẦN THƯ VIỆN) =====
+-- ===== BIẾN TOÀN CỤC =====
+local AutoFarmEnabled = false
+local SelectedFarmMob = ""
+local FlyEnabled = false
+local NoClipEnabled = false
+
+-- ===== NÚT BẬT MENU BÊN TRÁI MÀN HÌNH =====
+local ToggleButton = Instance.new("ScreenGui")
+ToggleButton.Name = "RedzToggleBtn"
+ToggleButton.ResetOnSpawn = false
+ToggleButton.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+pcall(function() ToggleButton.Parent = CG end)
+if not ToggleButton.Parent then ToggleButton.Parent = LP:WaitForChild("PlayerGui") end
+
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "MenuToggle"
+ToggleBtn.Size = UDim2.new(0, 55, 0, 55)
+ToggleBtn.Position = UDim2.new(0, 10, 0.5, -27) -- Bên trái giữa màn hình
+ToggleBtn.Text = "🔴"
+ToggleBtn.TextSize = 28
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.BorderSizePixel = 0
+ToggleBtn.Active = true
+ToggleBtn.Draggable = true
+ToggleBtn.Parent = ToggleButton
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 27)
+ToggleCorner.Parent = ToggleBtn
+
+local ToggleStroke = Instance.new("UIStroke")
+ToggleStroke.Thickness = 3
+ToggleStroke.Color = Color3.fromRGB(255, 50, 50)
+ToggleStroke.Parent = ToggleBtn
+
+-- ===== TẠO MENU CHÍNH =====
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "RedzHubBloxFruits"
+ScreenGui.Name = "RedzHubMain"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 pcall(function() ScreenGui.Parent = CG end)
 if not ScreenGui.Parent then ScreenGui.Parent = LP:WaitForChild("PlayerGui") end
 
--- Main Frame
 local Main = Instance.new("Frame")
-Main.Name = "Main"
-Main.Size = UDim2.new(0, 500, 0, 350)
-Main.Position = UDim2.new(0.5, -250, 0.5, -175)
+Main.Name = "MainFrame"
+Main.Size = UDim2.new(0, 520, 0, 380)
+Main.Position = UDim2.new(0.5, -260, 0.5, -190)
 Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Main.BorderSizePixel = 0
 Main.Active = true
 Main.Draggable = true
+Main.Visible = false -- Ẩn ban đầu
 Main.Parent = ScreenGui
 
--- Corner Main
 local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 8)
+MainCorner.CornerRadius = UDim.new(0, 10)
 MainCorner.Parent = Main
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Thickness = 2
+MainStroke.Color = Color3.fromRGB(255, 50, 50)
+MainStroke.Parent = Main
 
 -- Top Bar
 local TopBar = Instance.new("Frame")
-TopBar.Name = "TopBar"
-TopBar.Size = UDim2.new(1, 0, 0, 35)
+TopBar.Size = UDim2.new(1, 0, 0, 40)
 TopBar.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
 TopBar.BorderSizePixel = 0
 TopBar.Parent = Main
 
 local TopCorner = Instance.new("UICorner")
-TopCorner.CornerRadius = UDim.new(0, 8)
+TopCorner.CornerRadius = UDim.new(0, 10)
 TopCorner.Parent = TopBar
 
 local TopCover = Instance.new("Frame")
@@ -104,9 +145,9 @@ TopCover.BorderSizePixel = 0
 TopCover.Parent = TopBar
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(0, 200, 1, 0)
-Title.Position = UDim2.new(0, 10, 0, 0)
-Title.Text = "Redz Hub - Blox Fruits"
+Title.Size = UDim2.new(1, -50, 1, 0)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.Text = "🔥 REDZ HUB - BLOX FRUITS 🔥"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 16
 Title.Font = Enum.Font.GothamBold
@@ -114,71 +155,72 @@ Title.BackgroundTransparency = 1
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
 
--- Close Button
-local Close = Instance.new("TextButton")
-Close.Size = UDim2.new(0, 30, 0, 30)
-Close.Position = UDim2.new(1, -35, 0, 2)
-Close.Text = "X"
-Close.TextColor3 = Color3.fromRGB(255, 255, 255)
-Close.TextSize = 18
-Close.Font = Enum.Font.GothamBold
-Close.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-Close.BackgroundTransparency = 0.5
-Close.BorderSizePixel = 0
-Close.Parent = TopBar
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 32, 0, 32)
+CloseBtn.Position = UDim2.new(1, -38, 0, 4)
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 18
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+CloseBtn.BackgroundTransparency = 0.3
+CloseBtn.BorderSizePixel = 0
+CloseBtn.Parent = TopBar
 
 local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 15)
-CloseCorner.Parent = Close
+CloseCorner.CornerRadius = UDim.new(0, 16)
+CloseCorner.Parent = CloseBtn
 
-Close.MouseButton1Click:Connect(function()
-    Main.Visible = not Main.Visible
+CloseBtn.MouseButton1Click:Connect(function()
+    Main.Visible = false
+    ToggleBtn.Text = "🔴"
+    ToggleStroke.Color = Color3.fromRGB(255, 50, 50)
 end)
 
--- Tab Buttons
-local Tabs = {}
-local TabNames = {"Auto Farm", "Teleport", "Raid", "Player", "Event", "Misc"}
+-- ===== TAB SYSTEM =====
+local TabNames = {"⚔️ Auto Farm", "🌍 Teleport", "🏰 Raid", "👤 Player", "🎪 Event", "🔧 Misc"}
 local TabButtons = {}
 local TabFrames = {}
 
-local TabButtonFrame = Instance.new("Frame")
-TabButtonFrame.Size = UDim2.new(0, 120, 1, -35)
-TabButtonFrame.Position = UDim2.new(0, 0, 0, 35)
-TabButtonFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-TabButtonFrame.BorderSizePixel = 0
-TabButtonFrame.Parent = Main
+local TabBtnFrame = Instance.new("Frame")
+TabBtnFrame.Size = UDim2.new(0, 130, 1, -40)
+TabBtnFrame.Position = UDim2.new(0, 0, 0, 40)
+TabBtnFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+TabBtnFrame.BorderSizePixel = 0
+TabBtnFrame.Parent = Main
 
 for i, name in pairs(TabNames) do
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -10, 0, 35)
-    btn.Position = UDim2.new(0, 5, 0, (i-1)*40 + 5)
+    btn.Size = UDim2.new(1, -10, 0, 38)
+    btn.Position = UDim2.new(0, 5, 0, (i-1)*43 + 5)
     btn.Text = name
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextSize = 13
+    btn.TextSize = 12
     btn.Font = Enum.Font.GothamSemibold
     btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     btn.BorderSizePixel = 0
-    btn.Parent = TabButtonFrame
+    btn.Parent = TabBtnFrame
 
     local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 5)
+    btnCorner.CornerRadius = UDim.new(0, 6)
     btnCorner.Parent = btn
 
     local frame = Instance.new("ScrollingFrame")
-    frame.Size = UDim2.new(1, -125, 1, -40)
-    frame.Position = UDim2.new(0, 125, 0, 35)
+    frame.Size = UDim2.new(1, -135, 1, -45)
+    frame.Position = UDim2.new(0, 135, 0, 40)
     frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     frame.BorderSizePixel = 0
-    frame.ScrollBarThickness = 5
+    frame.ScrollBarThickness = 4
+    frame.ScrollBarImageColor3 = Color3.fromRGB(255, 50, 50)
     frame.Visible = (i == 1)
     frame.Parent = Main
 
     local frameCorner = Instance.new("UICorner")
-    frameCorner.CornerRadius = UDim.new(0, 8)
+    frameCorner.CornerRadius = UDim.new(0, 10)
     frameCorner.Parent = frame
 
     local UIListLayout = Instance.new("UIListLayout")
-    UIListLayout.Padding = UDim.new(0, 5)
+    UIListLayout.Padding = UDim.new(0, 4)
     UIListLayout.Parent = frame
 
     TabButtons[name] = btn
@@ -192,10 +234,26 @@ for i, name in pairs(TabNames) do
     end)
 end
 
--- ===== HELPER TẠO ELEMENT =====
+-- Set tab đầu tiên active
+TabButtons[TabNames[1]].BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+
+-- ===== HELPER FUNCTIONS TẠO UI ELEMENTS =====
+local function CreateLabel(parent, text)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -10, 0, 28)
+    lbl.Text = "── " .. text .. " ──"
+    lbl.TextColor3 = Color3.fromRGB(255, 100, 100)
+    lbl.TextSize = 14
+    lbl.Font = Enum.Font.GothamBold
+    lbl.BackgroundTransparency = 1
+    lbl.TextXAlignment = Enum.TextXAlignment.Center
+    lbl.Parent = parent
+    return lbl
+end
+
 local function CreateToggle(parent, text, default, callback)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -10, 0, 30)
+    frame.Size = UDim2.new(1, -10, 0, 32)
     frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     frame.BorderSizePixel = 0
     frame.Parent = parent
@@ -205,45 +263,58 @@ local function CreateToggle(parent, text, default, callback)
     fCorner.Parent = frame
 
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0, 200, 1, 0)
+    label.Size = UDim2.new(0, 250, 1, 0)
     label.Position = UDim2.new(0, 10, 0, 0)
     label.Text = text
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextSize = 13
+    label.TextSize = 12
     label.Font = Enum.Font.Gotham
     label.BackgroundTransparency = 1
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = frame
 
     local toggle = Instance.new("TextButton")
-    toggle.Size = UDim2.new(0, 40, 0, 20)
-    toggle.Position = UDim2.new(1, -50, 0, 5)
+    toggle.Size = UDim2.new(0, 44, 0, 22)
+    toggle.Position = UDim2.new(1, -54, 0, 5)
     toggle.Text = ""
     toggle.BackgroundColor3 = default and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(80, 80, 80)
     toggle.BorderSizePixel = 0
+    toggle.AutoButtonColor = false
     toggle.Parent = frame
 
     local tCorner = Instance.new("UICorner")
-    tCorner.CornerRadius = UDim.new(0, 10)
+    tCorner.CornerRadius = UDim.new(0, 11)
     tCorner.Parent = toggle
+
+    local dot = Instance.new("Frame")
+    dot.Size = UDim2.new(0, 16, 0, 16)
+    dot.Position = default and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+    dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    dot.BorderSizePixel = 0
+    dot.Parent = toggle
+
+    local dotCorner = Instance.new("UICorner")
+    dotCorner.CornerRadius = UDim.new(0, 8)
+    dotCorner.Parent = dot
 
     local state = default
 
     toggle.MouseButton1Click:Connect(function()
         state = not state
         toggle.BackgroundColor3 = state and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(80, 80, 80)
+        dot.Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
         callback(state)
     end)
 
-    return {Toggle = toggle, Frame = frame, SetState = function(s) state = s toggle.BackgroundColor3 = s and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(80, 80, 80) end}
+    return {GetState = function() return state end}
 end
 
 local function CreateButton(parent, text, callback)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -10, 0, 35)
+    btn.Size = UDim2.new(1, -10, 0, 34)
     btn.Text = text
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextSize = 13
+    btn.TextSize = 12
     btn.Font = Enum.Font.GothamSemibold
     btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     btn.BorderSizePixel = 0
@@ -259,7 +330,7 @@ end
 
 local function CreateSlider(parent, text, min, max, default, callback)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -10, 0, 50)
+    frame.Size = UDim2.new(1, -10, 0, 52)
     frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     frame.BorderSizePixel = 0
     frame.Parent = parent
@@ -269,7 +340,7 @@ local function CreateSlider(parent, text, min, max, default, callback)
     fCorner.Parent = frame
 
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -20, 0, 20)
+    label.Size = UDim2.new(1, -20, 0, 22)
     label.Position = UDim2.new(0, 10, 0, 3)
     label.Text = text .. ": " .. default
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -279,91 +350,205 @@ local function CreateSlider(parent, text, min, max, default, callback)
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = frame
 
-    local slider = Instance.new("TextButton")
-    slider.Size = UDim2.new(1, -20, 0, 20)
-    slider.Position = UDim2.new(0, 10, 0, 25)
-    slider.Text = ""
-    slider.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    slider.BorderSizePixel = 0
-    slider.AutoButtonColor = false
-    slider.Parent = frame
+    local sliderBg = Instance.new("Frame")
+    sliderBg.Size = UDim2.new(1, -20, 0, 22)
+    sliderBg.Position = UDim2.new(0, 10, 0, 26)
+    sliderBg.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    sliderBg.BorderSizePixel = 0
+    sliderBg.Parent = frame
 
     local sCorner = Instance.new("UICorner")
-    sCorner.CornerRadius = UDim.new(0, 10)
-    sCorner.Parent = slider
+    sCorner.CornerRadius = UDim.new(0, 11)
+    sCorner.Parent = sliderBg
 
     local fill = Instance.new("Frame")
     fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0)
     fill.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
     fill.BorderSizePixel = 0
-    fill.Parent = slider
+    fill.Parent = sliderBg
 
-    local fCorner2 = Instance.new("UICorner")
-    fCorner2.CornerRadius = UDim.new(0, 10)
-    fCorner2.Parent = fill
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(0, 11)
+    fillCorner.Parent = fill
 
     local val = default
 
-    slider.MouseButton1Down:Connect(function()
-        local con
-        con = UIS.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement then
-                local mousePos = UIS:GetMouseLocation()
-                local relX = mousePos.X - slider.AbsolutePosition.X
-                local percent = math.clamp(relX / slider.AbsoluteSize.X, 0, 1)
-                val = math.floor(min + (max - min) * percent)
-                fill.Size = UDim2.new(percent, 0, 1, 0)
-                label.Text = text .. ": " .. val
-            end
-        end)
-        UIS.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                con:Disconnect()
-                callback(val)
-            end
-        end)
+    local function updateSlider(input)
+        local mousePos = UIS:GetMouseLocation()
+        local relX = mousePos.X - sliderBg.AbsolutePosition.X
+        local percent = math.clamp(relX / sliderBg.AbsoluteSize.X, 0, 1)
+        val = math.floor(min + (max - min) * percent)
+        fill.Size = UDim2.new(percent, 0, 1, 0)
+        label.Text = text .. ": " .. val
+    end
+
+    sliderBg.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            local con
+            con = RunService.RenderStepped:Connect(function()
+                updateSlider(input)
+            end)
+            UIS.InputEnded:Connect(function(endedInput)
+                if endedInput.UserInputType == Enum.UserInputType.MouseButton1 or endedInput.UserInputType == Enum.UserInputType.Touch then
+                    con:Disconnect()
+                    callback(val)
+                end
+            end)
+        end
     end)
 
-    return {SetValue = function(v) val = v fill.Size = UDim2.new((v-min)/(max-min), 0, 1, 0) label.Text = text .. ": " .. v end}
+    return {GetValue = function() return val end}
+end
+
+local function CreateDropdown(parent, text, options, default, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -10, 0, 34)
+    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    frame.BorderSizePixel = 0
+    frame.Parent = parent
+
+    local fCorner = Instance.new("UICorner")
+    fCorner.CornerRadius = UDim.new(0, 5)
+    fCorner.Parent = frame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -20, 0, 16)
+    label.Position = UDim2.new(0, 10, 0, 2)
+    label.Text = text .. ": " .. default
+    label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    label.TextSize = 11
+    label.Font = Enum.Font.Gotham
+    label.BackgroundTransparency = 1
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local dropdownBtn = Instance.new("TextButton")
+    dropdownBtn.Size = UDim2.new(1, -20, 0, 16)
+    dropdownBtn.Position = UDim2.new(0, 10, 0, 17)
+    dropdownBtn.Text = "▼ " .. default
+    dropdownBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    dropdownBtn.TextSize = 11
+    dropdownBtn.Font = Enum.Font.Gotham
+    dropdownBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    dropdownBtn.BorderSizePixel = 0
+    dropdownBtn.Parent = frame
+
+    local dCorner = Instance.new("UICorner")
+    dCorner.CornerRadius = UDim.new(0, 4)
+    dCorner.Parent = dropdownBtn
+
+    local dropdownList = Instance.new("Frame")
+    dropdownList.Size = UDim2.new(1, -20, 0, #options * 22)
+    dropdownList.Position = UDim2.new(0, 10, 0, 34)
+    dropdownList.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    dropdownList.BorderSizePixel = 0
+    dropdownList.Visible = false
+    dropdownList.ZIndex = 10
+    dropdownList.Parent = frame
+
+    local dlCorner = Instance.new("UICorner")
+    dlCorner.CornerRadius = UDim.new(0, 4)
+    dlCorner.Parent = dropdownList
+
+    for i, opt in pairs(options) do
+        local optBtn = Instance.new("TextButton")
+        optBtn.Size = UDim2.new(1, 0, 0, 22)
+        optBtn.Position = UDim2.new(0, 0, 0, (i-1)*22)
+        optBtn.Text = opt
+        optBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        optBtn.TextSize = 11
+        optBtn.Font = Enum.Font.Gotham
+        optBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        optBtn.BorderSizePixel = 0
+        optBtn.ZIndex = 11
+        optBtn.Parent = dropdownList
+
+        optBtn.MouseButton1Click:Connect(function()
+            dropdownBtn.Text = "▼ " .. opt
+            dropdownList.Visible = false
+            label.Text = text .. ": " .. opt
+            callback(opt)
+        end)
+    end
+
+    dropdownBtn.MouseButton1Click:Connect(function()
+        dropdownList.Visible = not dropdownList.Visible
+    end)
+
+    frame.Size = UDim2.new(1, -10, 0, 34) -- Reset size
+
+    return {}
 end
 
 -- ===== TAB 1: AUTO FARM =====
-local Tab1 = TabFrames["Auto Farm"]
+local Tab1 = TabFrames[TabNames[1]]
 
-CreateLabel(Tab1, "Auto Farm Chính")
+CreateLabel(Tab1, "KATAKURI & BONE FARM")
 
-local AutoFarmToggle = {State = false}
-local SelectedMob = "Katakuri"
-
-CreateToggle(Tab1, "Auto Farm Katakuri", false, function(s) AutoFarmToggle.State = s SelectedMob = "Katakuri" end)
-CreateToggle(Tab1, "Auto Farm Bone", false, function(s) AutoFarmToggle.State = s SelectedMob = "Bone" end)
-CreateToggle(Tab1, "Auto Farm Elite Pirate", false, function(s) AutoFarmToggle.State = s SelectedMob = "Elite Pirate" end)
-CreateToggle(Tab1, "Auto Farm Dragon Crew", false, function(s) AutoFarmToggle.State = s SelectedMob = "Dragon Crew" end)
-CreateToggle(Tab1, "Auto Boss Farm", false, function(s) AutoFarmToggle.State = s SelectedMob = "Boss" end)
-
-CreateButton(Tab1, "Tắt Tất Cả Auto Farm", function()
-    AutoFarmToggle.State = false
+CreateToggle(Tab1, "Auto Farm Katakuri", false, function(s)
+    AutoFarmEnabled = s
+    SelectedFarmMob = "Katakuri"
 end)
 
+CreateToggle(Tab1, "Auto Farm Bone", false, function(s)
+    AutoFarmEnabled = s
+    SelectedFarmMob = "Bone"
+end)
+
+CreateToggle(Tab1, "Auto Farm Elite Pirate", false, function(s)
+    AutoFarmEnabled = s
+    SelectedFarmMob = "Elite Pirate"
+end)
+
+CreateToggle(Tab1, "Auto Farm Dragon Crew", false, function(s)
+    AutoFarmEnabled = s
+    SelectedFarmMob = "Dragon Crew"
+end)
+
+CreateToggle(Tab1, "Auto Farm Tiki Warrior", false, function(s)
+    AutoFarmEnabled = s
+    SelectedFarmMob = "Tiki Warrior"
+end)
+
+CreateToggle(Tab1, "Auto Farm Master of Enhance", false, function(s)
+    AutoFarmEnabled = s
+    SelectedFarmMob = "Master of Enhancement"
+end)
+
+CreateLabel(Tab1, "BOSS FARM")
+
+CreateToggle(Tab1, "Auto Farm Dough King", false, function(s)
+    AutoFarmEnabled = s
+    SelectedFarmMob = "Dough King"
+end)
+
+CreateToggle(Tab1, "Auto Farm Cake Prince", false, function(s)
+    AutoFarmEnabled = s
+    SelectedFarmMob = "Cake Prince"
+end)
+
+CreateToggle(Tab1, "Auto Farm Sea Beast", false, function(s)
+    AutoFarmEnabled = s
+    SelectedFarmMob = "SeaBeast"
+end)
+
+CreateButton(Tab1, "❌ TẮT TẤT CẢ AUTO FARM", function()
+    AutoFarmEnabled = false
+    SelectedFarmMob = ""
+end)
+
+-- Auto Farm Loop
 spawn(function()
-    while wait(0.5) do
-        if AutoFarmToggle.State and HRP and Hum and Hum.Health > 0 then
-            local target
-            if SelectedMob == "Boss" then
-                for _, v in pairs(WS.Enemies:GetChildren()) do
-                    if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
-                        if string.find(v.Name, "Boss") or string.find(v.Name, "boss") then
-                            target = v
-                            break
-                        end
-                    end
-                end
-            else
-                target = GetNearestEnemy(SelectedMob)
-            end
+    while task.wait(0.3) do
+        if AutoFarmEnabled and SelectedFarmMob ~= "" and HRP and Hum and Hum.Health > 0 then
+            local target = GetNearestEnemy(SelectedFarmMob)
             if target then
-                TeleportTo(target.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
-                wait(0.3)
+                local dist = (HRP.Position - target.HumanoidRootPart.Position).Magnitude
+                if dist > 200 then
+                    TeleportTo(target.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
+                elseif dist > 5 then
+                    HRP.CFrame = target.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5)
+                end
                 Click()
             end
         end
@@ -371,359 +556,194 @@ spawn(function()
 end)
 
 -- ===== TAB 2: TELEPORT =====
-local Tab2 = TabFrames["Teleport"]
+local Tab2 = TabFrames[TabNames[2]]
 
-CreateLabel(Tab2, "Teleport Nhanh")
+CreateLabel(Tab2, "🌊 SEA 1")
 
-local TeleportList = {
-    ["Sea 1 - Đảo Khởi Đầu"] = CFrame.new(1074, 16, 1426),
-    ["Sea 1 - Đảo Rừng"] = CFrame.new(-1613, 36, 147),
-    ["Sea 1 - Đảo Tuyết"] = CFrame.new(-5537, 38, -817),
-    ["Sea 1 - Đảo Sa Mạc"] = CFrame.new(970, 17, 3712),
-    ["Sea 1 - Đảo Trời Cao"] = CFrame.new(-4876, 328, -4803),
-    ["Sea 1 - Đảo Tối"] = CFrame.new(1120, 22, 310),
-    ["Sea 1 - Đảo Lửa"] = CFrame.new(-1189, 27, 3178),
-    ["Sea 2 - Cafe"] = CFrame.new(-1836, 87, -1394),
-    ["Sea 2 - Đảo Xanh"] = CFrame.new(-2493, 22, -395),
-    ["Sea 2 - Đảo Cát"] = CFrame.new(-372, 17, 5612),
-    ["Sea 2 - Lâu Đài Trên Mây"] = CFrame.new(-5108, 329, -4774),
-    ["Sea 3 - Đảo Rùa"] = CFrame.new(-3287, 399, 7880),
-    ["Sea 3 - Đảo Hydra"] = CFrame.new(-5800, 392, -200),
-    ["Sea 3 - Đảo Great Tree"] = CFrame.new(2274, 22, -6608),
-    ["Sea 3 - Lâu Đài Vua Xương"] = CFrame.new(-627, 21, 6755),
-    ["Đảo Cáo"] = CFrame.new(-7692, 5552, -1318),
-    ["Đảo Núi Lửa"] = CFrame.new(-3596, 493, 7881),
-    ["Sảnh Đấu"] = CFrame.new(-1581, 47, -2057),
-    ["Cổng Dịch Chuyển Sea 1-2"] = CFrame.new(-2073, 4, -10212),
-    ["Cổng Dịch Chuyển Sea 2-3"] = CFrame.new(-8464, -400, 9013),
+local Sea1Places = {
+    "Đảo Khởi Đầu (Start)", "Đảo Rừng (Jungle)", "Đảo Cướp Biển (Pirate)",
+    "Đảo Tuyết (Snow)", "Đảo Sa Mạc (Desert)", "Đảo Trời Cao (Sky)",
+    "Đảo Tối (Dark)", "Đảo Lửa (Magma)", "Đảo Đấu Trường (Colosseum)",
+    "Làng Cá Voi (Whale)", "Đảo Xương (Bone)"
 }
-
-for name, pos in pairs(TeleportList) do
+for _, name in pairs(Sea1Places) do
     CreateButton(Tab2, name, function()
-        TweenTo(pos)
+        if string.find(name, "Khởi Đầu") then TweenTo(CFrame.new(1074, 16, 1426))
+        elseif string.find(name, "Rừng") then TweenTo(CFrame.new(-1613, 36, 147))
+        elseif string.find(name, "Cướp") then TweenTo(CFrame.new(1212, 18, 284))
+        elseif string.find(name, "Tuyết") then TweenTo(CFrame.new(-5537, 38, -817))
+        elseif string.find(name, "Sa Mạc") then TweenTo(CFrame.new(970, 17, 3712))
+        elseif string.find(name, "Trời") then TweenTo(CFrame.new(-4876, 328, -4803))
+        elseif string.find(name, "Tối") then TweenTo(CFrame.new(1120, 22, 310))
+        elseif string.find(name, "Lửa") then TweenTo(CFrame.new(-1189, 27, 3178))
+        elseif string.find(name, "Đấu") then TweenTo(CFrame.new(-1581, 47, -2057))
+        elseif string.find(name, "Cá Voi") then TweenTo(CFrame.new(1033, 17, 3093))
+        elseif string.find(name, "Xương") then TweenTo(CFrame.new(-627, 21, 6755))
+        end
+    end)
+end
+
+CreateLabel(Tab2, "🏰 SEA 2")
+
+local Sea2Places = {
+    "Cafe Đảo Chính", "Đảo Xanh (Green)", "Đảo Cát (Graveyard)",
+    "Lâu Đài Trên Mây", "Biệt Thự Don Swan", "Sảnh Đấu Sea 2",
+    "Cổng Sea 1-2"
+}
+for _, name in pairs(Sea2Places) do
+    CreateButton(Tab2, name, function()
+        if string.find(name, "Cafe") then TweenTo(CFrame.new(-1836, 87, -1394))
+        elseif string.find(name, "Xanh") then TweenTo(CFrame.new(-2493, 22, -395))
+        elseif string.find(name, "Cát") then TweenTo(CFrame.new(-372, 17, 5612))
+        elseif string.find(name, "Trên Mây") then TweenTo(CFrame.new(-5108, 329, -4774))
+        elseif string.find(name, "Don Swan") then TweenTo(CFrame.new(-1866, 87, -1398))
+        elseif string.find(name, "Sảnh") then TweenTo(CFrame.new(-2450, 50, -2100))
+        elseif string.find(name, "Cổng") then TweenTo(CFrame.new(-2073, 4, -10212))
+        end
+    end)
+end
+
+CreateLabel(Tab2, "🐉 SEA 3")
+
+local Sea3Places = {
+    "Đảo Rùa (Turtle)", "Đảo Hydra", "Đảo Great Tree",
+    "Lâu Đài Vua Xương", "Đảo Núi Lửa", "Đảo Cáo",
+    "Cổng Sea 2-3"
+}
+for _, name in pairs(Sea3Places) do
+    CreateButton(Tab2, name, function()
+        if string.find(name, "Rùa") then TweenTo(CFrame.new(-3287, 399, 7880))
+        elseif string.find(name, "Hydra") then TweenTo(CFrame.new(-5800, 392, -200))
+        elseif string.find(name, "Great Tree") then TweenTo(CFrame.new(2274, 22, -6608))
+        elseif string.find(name, "Vua Xương") then TweenTo(CFrame.new(-627, 21, 6755))
+        elseif string.find(name, "Núi Lửa") then TweenTo(CFrame.new(-3596, 493, 7881))
+        elseif string.find(name, "Cáo") then TweenTo(CFrame.new(-7692, 5552, -1318))
+        elseif string.find(name, "Cổng") then TweenTo(CFrame.new(-8464, -400, 9013))
+        end
     end)
 end
 
 -- ===== TAB 3: RAID =====
-local Tab3 = TabFrames["Raid"]
+local Tab3 = TabFrames[TabNames[3]]
 
-CreateLabel(Tab3, "Auto Raid")
+CreateLabel(Tab3, "AUTO RAID")
 
-CreateButton(Tab3, "Mua Chip Flame", function()
-    local args = {[1] = "Flame"}
-    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
-end)
-
-CreateButton(Tab3, "Mua Chip Ice", function()
-    local args = {[1] = "Ice"}
-    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
-end)
-
-CreateButton(Tab3, "Mua Chip Dough", function()
-    local args = {[1] = "Dough"}
-    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
-end)
-
-CreateButton(Tab3, "Mua Chip Dragon", function()
-    local args = {[1] = "Dragon"}
-    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
-end)
-
-CreateButton(Tab3, "Tele Raid", function()
+CreateButton(Tab3, "🏃 Tele Raid Room", function()
     TeleportTo(CFrame.new(-5772, -231, -5182))
 end)
 
-CreateButton(Tab3, "Bắt Đầu Raid", function()
+CreateButton(Tab3, "🛒 Mua Chip Flame", function()
+    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
+    task.wait(0.5)
+    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
+end)
+
+CreateButton(Tab3, "🛒 Mua Chip Ice", function()
+    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
+    task.wait(0.5)
+    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
+end)
+
+CreateButton(Tab3, "🛒 Mua Chip Dough", function()
+    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
+    task.wait(0.5)
+    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
+end)
+
+CreateButton(Tab3, "🛒 Mua Chip Dragon", function()
+    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
+    task.wait(0.5)
+    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
+end)
+
+CreateButton(Tab3, "▶️ Bắt Đầu Raid", function()
     RS.Remotes.CommF_:InvokeServer("Raids", "Start")
 end)
 
+CreateButton(Tab3, "⏩ Next Island (Raid)", function()
+    RS.Remotes.CommF_:InvokeServer("Raids", "NextIsland")
+end)
+
 -- ===== TAB 4: PLAYER =====
-local Tab4 = TabFrames["Player"]
+local Tab4 = TabFrames[TabNames[4]]
 
-CreateLabel(Tab4, "Player Hacks")
+CreateLabel(Tab4, "CHARACTER HACKS")
 
-CreateToggle(Tab4, "Fly Hack", false, function(s)
+CreateToggle(Tab4, "🕊️ Fly Hack (WASD)", false, function(s)
+    FlyEnabled = s
     if s then
-        local bg = Instance.new("BodyGyro")
-        bg.MaxTorque = Vector3.new(400000, 400000, 400000)
-        bg.P = 12500
-        bg.Parent = HRP
-        local bv = Instance.new("BodyVelocity")
-        bv.MaxForce = Vector3.new(400000, 400000, 400000)
-        bv.Velocity = Vector3.new(0, 0, 0)
-        bv.Parent = HRP
-        spawn(function()
-            while HRP and HRP:FindFirstChild("BodyGyro") do
-                local cam = WS.CurrentCamera
-                HRP.BodyGyro.CFrame = cam.CFrame
-                local dir = Vector3.zero
-                if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.CFrame.LookVector end
-                if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.CFrame.LookVector end
-                if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - cam.CFrame.RightVector end
-                if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + cam.CFrame.RightVector end
-                if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
-                if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0, 1, 0) end
-                HRP.BodyVelocity.Velocity = dir * 100
-                wait()
-            end
-        end)
+        EnableFly()
     else
-        for _, v in pairs({HRP:FindFirstChild("BodyGyro"), HRP:FindFirstChild("BodyVelocity")}) do
+        DisableFly()
+    end
+end)
+
+function EnableFly()
+    if not HRP then return end
+    DisableFly()
+    local bg = Instance.new("BodyGyro")
+    bg.Name = "FlyGyro"
+    bg.MaxTorque = Vector3.new(400000, 400000, 400000)
+    bg.P = 12500
+    bg.Parent = HRP
+    local bv = Instance.new("BodyVelocity")
+    bv.Name = "FlyVel"
+    bv.MaxForce = Vector3.new(400000, 400000, 400000)
+    bv.Velocity = Vector3.new(0, 0, 0)
+    bv.Parent = HRP
+end
+
+function DisableFly()
+    if HRP then
+        for _, v in pairs({HRP:FindFirstChild("FlyGyro"), HRP:FindFirstChild("FlyVel")}) do
             if v then v:Destroy() end
         end
     end
+end
+
+spawn(function()
+    while task.wait() do
+        if FlyEnabled and HRP and HRP:FindFirstChild("FlyGyro") and HRP:FindFirstChild("FlyVel") then
+            local cam = WS.CurrentCamera
+            HRP.FlyGyro.CFrame = cam.CFrame
+            local dir = Vector3.zero
+            if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - cam.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + cam.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
+            if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0, 1, 0) end
+            HRP.FlyVel.Velocity = dir * 120
+        else
+            task.wait(0.1)
+        end
+    end
 end)
 
-CreateSlider(Tab4, "WalkSpeed", 16, 300, 16, function(v)
+CreateSlider(Tab4, "🏃 WalkSpeed", 16, 300, 16, function(v)
     if Hum then Hum.WalkSpeed = v end
 end)
 
-CreateSlider(Tab4, "JumpPower", 50, 500, 50, function(v)
+CreateSlider(Tab4, "🦘 JumpPower", 50, 500, 50, function(v)
     if Hum then Hum.JumpPower = v end
 end)
 
-CreateToggle(Tab4, "NoClip", false, function(s)
-    local function noclip()
-        if s then
-            for _, v in pairs(Char:GetDescendants()) do
-                if v:IsA("BasePart") and v.CanCollide then
-                    v.CanCollide = false
-                end
-            end
-        end
-    end
-    noclip()
-    Char.DescendantAdded:Connect(function(c)
-        if s and c:IsA("BasePart") then
-            c.CanCollide = false
-        end
-    end)
-end)
-
--- ===== TAB 5: EVENT =====
-local Tab5 = TabFrames["Event"]
-
-CreateLabel(Tab5, "Event Farm")
-
-CreateToggle(Tab5, "Auto Sea Event", false, function(s)
-    spawn(function()
-        while s and wait(5) do
-            for _, v in pairs(WS:GetChildren()) do
-                if v.Name == "SeaBeast" or v.Name == "Shark" or v.Name == "Ship" then
-                    if v:FindFirstChild("HumanoidRootPart") then
-                        TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0))
-                        wait(0.5)
-                        Click()
-                    end
-                end
-            end
-        end
-    end)
-end)
-
-CreateToggle(Tab5, "Auto Đảo Núi Lửa", false, function(s)
-    spawn(function()
-        while s and wait(3) do
-            TeleportTo(CFrame.new(-3596, 493, 7881))
-            wait(1)
-            for _, v in pairs(WS.Enemies:GetChildren()) do
-                if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
-                    if (v.HumanoidRootPart.Position - Vector3.new(-3596, 493, 7881)).Magnitude < 500 then
-                        TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
-                        wait(0.3)
-                        Click()
-                    end
-                end
-            end
-        end
-    end)
-end)
-
-CreateToggle(Tab5, "Auto Đảo Cáo", false, function(s)
-    spawn(function()
-        while s and wait(3) do
-            TeleportTo(CFrame.new(-7692, 5552, -1318))
-            wait(1)
-            for _, v in pairs(WS.Enemies:GetChildren()) do
-                if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
-                    if (v.HumanoidRootPart.Position - Vector3.new(-7692, 5552, -1318)).Magnitude < 500 then
-                        TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
-                        wait(0.3)
-                        Click()
-                    end
-                end
-            end
-        end
-    end)
-end)
-
--- ===== TAB 6: MISC =====
-local Tab6 = TabFrames["Misc"]
-
-CreateLabel(Tab6, "Misc Hacks")
-
-CreateToggle(Tab6, "Auto V4", false, function(s)
-    spawn(function()
-        while s and wait(5) do
-            pcall(function()
-                RS.Remotes.CommF_:InvokeServer("Awakening", "Check")
-                wait(1)
-                RS.Remotes.CommF_:InvokeServer("Awakening", "Activate")
-            end)
-        end
-    end)
-end)
-
-CreateToggle(Tab6, "Auto V3", false, function(s)
-    spawn(function()
-        while s and wait(3) do
-            pcall(function()
-                RS.Remotes.CommF_:InvokeServer("Tier3", "Activate")
-            end)
-        end
-    end)
-end)
-
-CreateToggle(Tab6, "Auto Random Trái", false, function(s)
-    spawn(function()
-        while s and wait(2) do
-            RS.Remotes.CommF_:InvokeServer("Cousin", "Buy")
-        end
-    end)
-end)
-
-CreateToggle(Tab6, "Anti AFK", true, function(s)
-    spawn(function()
-        while s and wait(300) do
-            VU:CaptureController()
-            VU:ClickButton2(Vector2.new())
-        end
-    end)
-end)
-
-CreateButton(Tab6, "White Screen (Tiết Kiệm Pin)", function()
-    local ws = Instance.new("ScreenGui")
-    ws.Name = "WhiteScreen"
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, 0, 1, 0)
-    frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    frame.Parent = ws
-    pcall(function() ws.Parent = CG end)
-    if not ws.Parent then ws.Parent = LP:WaitForChild("PlayerGui") end
-end)
-
-CreateButton(Tab6, "Tắt White Screen", function()
-    if CG:FindFirstChild("WhiteScreen") then CG.WhiteScreen:Destroy() end
-    if LP:FindFirstChild("PlayerGui") and LP.PlayerGui:FindFirstChild("WhiteScreen") then LP.PlayerGui.WhiteScreen:Destroy() end
-end)
-
-CreateButton(Tab6, "Reset Character", function()
-    LP.Character:BreakJoints()
-end)
-
-CreateButton(Tab6, "Rejoin Server", function()
-    TS:Create(HRP, TweenInfo.new(0.1), {CFrame = CFrame.new(0, 99999, 0)}):Play()
-    wait(1)
-    LP.Character:BreakJoints()
-end)
-
--- ===== ẢNH ID GÓC PHẢI =====
-local ImageGui = Instance.new("ScreenGui")
-ImageGui.Name = "RedzImage"
-ImageGui.ResetOnSpawn = false
-ImageGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-pcall(function() ImageGui.Parent = CG end)
-if not ImageGui.Parent then ImageGui.Parent = LP:WaitForChild("PlayerGui") end
-
-local ImageFrame = Instance.new("Frame")
-ImageFrame.Size = UDim2.new(0, 200, 0, 200)
-ImageFrame.Position = UDim2.new(1, -210, 0, 10)
-ImageFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-ImageFrame.BorderSizePixel = 0
-ImageFrame.Active = true
-ImageFrame.Draggable = true
-ImageFrame.Parent = ImageGui
-
-local ImgCorner = Instance.new("UICorner")
-ImgCorner.CornerRadius = UDim.new(0, 8)
-ImgCorner.Parent = ImageFrame
-
-local ImgStroke = Instance.new("UIStroke")
-ImgStroke.Thickness = 2
-ImgStroke.Color = Color3.fromRGB(255, 50, 50)
-ImgStroke.Parent = ImageFrame
-
-local ImgLabel = Instance.new("ImageLabel")
-ImgLabel.Image = "rbxassetid://129898296854108"
-ImgLabel.BackgroundTransparency = 1
-ImgLabel.Size = UDim2.new(1, -8, 1, -8)
-ImgLabel.Position = UDim2.new(0, 4, 0, 4)
-ImgLabel.ScaleType = Enum.ScaleType.Fit
-ImgLabel.Parent = ImageFrame
-
-local ImgClose = Instance.new("TextButton")
-ImgClose.Text = "X"
-ImgClose.TextColor3 = Color3.fromRGB(255, 255, 255)
-ImgClose.TextSize = 14
-ImgClose.Font = Enum.Font.GothamBold
-ImgClose.BackgroundColor3 = Color3.fromRGB(255, 40, 40)
-ImgClose.Size = UDim2.new(0, 22, 0, 22)
-ImgClose.Position = UDim2.new(1, -25, 0, 3)
-ImgClose.ZIndex = 10
-ImgClose.Parent = ImageFrame
-
-local ImgCloseCorner = Instance.new("UICorner")
-ImgCloseCorner.CornerRadius = UDim.new(0, 11)
-ImgCloseCorner.Parent = ImgClose
-
-ImgClose.MouseButton1Click:Connect(function()
-    ImageFrame.Visible = false
-end)
-
--- ===== NOTIFICATION =====
-local Notif = Instance.new("TextLabel")
-Notif.Size = UDim2.new(0, 350, 0, 40)
-Notif.Position = UDim2.new(0.5, -175, 0, -50)
-Notif.Text = "Redz Hub - Blox Fruits Đã Load! Bấm Ctrl Phải Để Mở Menu"
-Notif.TextColor3 = Color3.fromRGB(255, 255, 255)
-Notif.TextSize = 14
-Notif.Font = Enum.Font.GothamBold
-Notif.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-Notif.BorderSizePixel = 0
-Notif.Parent = ScreenGui
-
-local NotifCorner = Instance.new("UICorner")
-NotifCorner.CornerRadius = UDim.new(0, 8)
-NotifCorner.Parent = Notif
-
-spawn(function()
-    for i = 0, 1, 0.02 do
-        Notif.Position = UDim2.new(0.5, -175, 0, (i * 30) - 50)
-        wait(0.01)
-    end
-    wait(3)
-    for i = 1, 0, -0.02 do
-        Notif.Position = UDim2.new(0.5, -175, 0, (i * 30) - 50)
-        wait(0.01)
-    end
-    Notif:Destroy()
-end)
-
--- ===== PHÍM TẮT =====
-UIS.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.RightControl then
-        Main.Visible = not Main.Visible
+CreateToggle(Tab4, "🚫 NoClip (Xuyên Tường)", false, function(s)
+    NoClipEnabled = s
+    if s then
+        EnableNoClip()
     end
 end)
 
--- ===== THÔNG BÁO CONSOLE =====
-print("====================================")
-print(" REDZ HUB - BLOX FRUITS LOADED")
-print(" Full Tính Năng Auto Farm Katakuri")
-print(" Bone - Raid - Teleport - Fly")
-print(" Law - V4 - V3 - Sea Event")
-print(" Đảo Núi Lửa - Đảo Cáo")
-print(" ID Ảnh: 129898296854108")
-print(" Nhấn Ctrl Phải để mở/tắt Menu")
-print("====================================")
+function EnableNoClip()
+    for _, v in pairs(Char:GetDescendants()) do
+        if v:IsA("BasePart") and v.CanCollide then
+            v.CanCollide = false
+        end
+    end
+end
+
+Char.DescendantAdded:Connect(function(c)
+    if NoClipEnabled and c:IsA("BasePart") then
+        task.wait()
+        c
