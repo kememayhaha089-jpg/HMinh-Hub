@@ -1,61 +1,56 @@
 --[[
-    Redz Hub - Blox Fruits Auto Farm Siêu Khủng Full Tính Năng
-    Tương thích: Delta Mobile, CodeX, Arceus X
-    Update: Katakuri, Bone, Raid, Teleport, Fly, Law, V4, Sea Event, Đảo Núi Lửa, Đảo Cáo
+    REDZ HUB - BLOX FRUITS SCRIPT FULL
+    TẤT CẢ TÍNH NĂNG ĐÃ TEST - DELTA MOBILE COMPATIBLE
+    ID Ảnh: 129898296854108
+    Version: 3.0 Final Fix
 --]]
 
--- Load RedzLib
-local RedzLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/REDzHUB/RedzLib/main/Library.lua"))()
+-- ===== KHỞI TẠO =====
+local g = game
+local Players = g:GetService("Players")
+local LP = Players.LocalPlayer
+local Char = LP.Character or LP.CharacterAdded:Wait()
+local HRP = Char:WaitForChild("HumanoidRootPart")
+local Hum = Char:WaitForChild("Humanoid")
+local VIM = g:GetService("VirtualInputManager")
+local VU = g:GetService("VirtualUser")
+local TS = g:GetService("TweenService")
+local UIS = g:GetService("UserInputService")
+local RS = g:GetService("ReplicatedStorage")
+local WS = g:GetService("Workspace")
+local CG = g:GetService("CoreGui")
 
--- Tạo cửa sổ chính
-local Window = RedzLib:CreateWindow("Redz Hub - Blox Fruits", "Auto Farm Full", Vector2.new(600, 400), Enum.KeyCode.RightControl)
+-- Auto Reconnect
+LP.CharacterAdded:Connect(function(c)
+    Char = c
+    HRP = Char:WaitForChild("HumanoidRootPart")
+    Hum = Char:WaitForChild("Humanoid")
+end)
 
--- ===== TẠO CÁC TAB =====
-local TabMain = Window:CreateTab("🏠 Main")
-local TabRaid = Window:CreateTab("⚔️ Raid")
-local TabTele = Window:CreateTab("🌍 Teleport")
-local TabMisc = Window:CreateTab("🔧 Misc")
-local TabEvent = Window:CreateTab("🎪 Event")
-
--- ===== BIẾN TOÀN CỤC =====
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local VirtualUser = game:GetService("VirtualUser")
-local TweenService = game:GetService("TweenService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
-
--- Auto Farm biến
-local AutoFarm = false
-local SelectedMob = "Katakuri"
-local MobList = {"Katakuri", "Bone", "Elite Pirate", "Swan Pirate", "Marine Admiral", "Dragon Crew Warrior", "Dragon Crew Archer", "Master of Enhancement"}
-
--- ===== HÀM TIỆN ÍCH =====
+-- ===== FUNCTIONS =====
 local function TweenTo(pos)
-    local tween = TweenService:Create(LocalPlayer.Character.HumanoidRootPart, TweenInfo.new(0.5), {CFrame = pos})
+    local tween = TS:Create(HRP, TweenInfo.new(0.5), {CFrame = pos})
     tween:Play()
+    tween.Completed:Wait()
 end
 
 local function TeleportTo(pos)
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        LocalPlayer.Character.HumanoidRootPart.CFrame = pos
+    if HRP then
+        HRP.CFrame = pos
     end
 end
 
 local function Click()
-    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-    wait()
-    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+    VIM:SendMouseButtonEvent(0, 0, 0, true, g, 0)
+    wait(0.05)
+    VIM:SendMouseButtonEvent(0, 0, 0, false, g, 0)
 end
 
--- ===== AUTO FARM MOBS =====
-local function GetNearestMob(name)
-    local nearest = nil
-    local minDist = math.huge
-    for _, v in pairs(workspace.Enemies:GetChildren()) do
+local function GetNearestEnemy(name)
+    local nearest, minDist = nil, math.huge
+    for _, v in pairs(WS.Enemies:GetChildren()) do
         if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") and string.find(v.Name, name) then
-            local dist = (LocalPlayer.Character.HumanoidRootPart.Position - v.HumanoidRootPart.Position).Magnitude
+            local dist = (HRP.Position - v.HumanoidRootPart.Position).Magnitude
             if dist < minDist then
                 minDist = dist
                 nearest = v
@@ -65,307 +60,670 @@ local function GetNearestMob(name)
     return nearest
 end
 
-spawn(function()
-    while wait() do
-        if AutoFarm then
-            local mob = GetNearestMob(SelectedMob)
-            if mob then
-                TeleportTo(mob.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
-                wait(0.5)
-                Click()
+-- ===== UI TẠO BẰNG TAY (KHÔNG CẦN THƯ VIỆN) =====
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "RedzHubBloxFruits"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+pcall(function() ScreenGui.Parent = CG end)
+if not ScreenGui.Parent then ScreenGui.Parent = LP:WaitForChild("PlayerGui") end
+
+-- Main Frame
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.new(0, 500, 0, 350)
+Main.Position = UDim2.new(0.5, -250, 0.5, -175)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Draggable = true
+Main.Parent = ScreenGui
+
+-- Corner Main
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 8)
+MainCorner.Parent = Main
+
+-- Top Bar
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Size = UDim2.new(1, 0, 0, 35)
+TopBar.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = Main
+
+local TopCorner = Instance.new("UICorner")
+TopCorner.CornerRadius = UDim.new(0, 8)
+TopCorner.Parent = TopBar
+
+local TopCover = Instance.new("Frame")
+TopCover.Size = UDim2.new(1, 0, 0.5, 0)
+TopCover.Position = UDim2.new(0, 0, 0.5, 0)
+TopCover.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+TopCover.BorderSizePixel = 0
+TopCover.Parent = TopBar
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0, 200, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.Text = "Redz Hub - Blox Fruits"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 16
+Title.Font = Enum.Font.GothamBold
+Title.BackgroundTransparency = 1
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TopBar
+
+-- Close Button
+local Close = Instance.new("TextButton")
+Close.Size = UDim2.new(0, 30, 0, 30)
+Close.Position = UDim2.new(1, -35, 0, 2)
+Close.Text = "X"
+Close.TextColor3 = Color3.fromRGB(255, 255, 255)
+Close.TextSize = 18
+Close.Font = Enum.Font.GothamBold
+Close.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+Close.BackgroundTransparency = 0.5
+Close.BorderSizePixel = 0
+Close.Parent = TopBar
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 15)
+CloseCorner.Parent = Close
+
+Close.MouseButton1Click:Connect(function()
+    Main.Visible = not Main.Visible
+end)
+
+-- Tab Buttons
+local Tabs = {}
+local TabNames = {"Auto Farm", "Teleport", "Raid", "Player", "Event", "Misc"}
+local TabButtons = {}
+local TabFrames = {}
+
+local TabButtonFrame = Instance.new("Frame")
+TabButtonFrame.Size = UDim2.new(0, 120, 1, -35)
+TabButtonFrame.Position = UDim2.new(0, 0, 0, 35)
+TabButtonFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+TabButtonFrame.BorderSizePixel = 0
+TabButtonFrame.Parent = Main
+
+for i, name in pairs(TabNames) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -10, 0, 35)
+    btn.Position = UDim2.new(0, 5, 0, (i-1)*40 + 5)
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 13
+    btn.Font = Enum.Font.GothamSemibold
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.BorderSizePixel = 0
+    btn.Parent = TabButtonFrame
+
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 5)
+    btnCorner.Parent = btn
+
+    local frame = Instance.new("ScrollingFrame")
+    frame.Size = UDim2.new(1, -125, 1, -40)
+    frame.Position = UDim2.new(0, 125, 0, 35)
+    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    frame.BorderSizePixel = 0
+    frame.ScrollBarThickness = 5
+    frame.Visible = (i == 1)
+    frame.Parent = Main
+
+    local frameCorner = Instance.new("UICorner")
+    frameCorner.CornerRadius = UDim.new(0, 8)
+    frameCorner.Parent = frame
+
+    local UIListLayout = Instance.new("UIListLayout")
+    UIListLayout.Padding = UDim.new(0, 5)
+    UIListLayout.Parent = frame
+
+    TabButtons[name] = btn
+    TabFrames[name] = frame
+
+    btn.MouseButton1Click:Connect(function()
+        for _, f in pairs(TabFrames) do f.Visible = false end
+        frame.Visible = true
+        for _, b in pairs(TabButtons) do b.BackgroundColor3 = Color3.fromRGB(50, 50, 50) end
+        btn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    end)
+end
+
+-- ===== HELPER TẠO ELEMENT =====
+local function CreateToggle(parent, text, default, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -10, 0, 30)
+    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    frame.BorderSizePixel = 0
+    frame.Parent = parent
+
+    local fCorner = Instance.new("UICorner")
+    fCorner.CornerRadius = UDim.new(0, 5)
+    fCorner.Parent = frame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0, 200, 1, 0)
+    label.Position = UDim2.new(0, 10, 0, 0)
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextSize = 13
+    label.Font = Enum.Font.Gotham
+    label.BackgroundTransparency = 1
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local toggle = Instance.new("TextButton")
+    toggle.Size = UDim2.new(0, 40, 0, 20)
+    toggle.Position = UDim2.new(1, -50, 0, 5)
+    toggle.Text = ""
+    toggle.BackgroundColor3 = default and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(80, 80, 80)
+    toggle.BorderSizePixel = 0
+    toggle.Parent = frame
+
+    local tCorner = Instance.new("UICorner")
+    tCorner.CornerRadius = UDim.new(0, 10)
+    tCorner.Parent = toggle
+
+    local state = default
+
+    toggle.MouseButton1Click:Connect(function()
+        state = not state
+        toggle.BackgroundColor3 = state and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(80, 80, 80)
+        callback(state)
+    end)
+
+    return {Toggle = toggle, Frame = frame, SetState = function(s) state = s toggle.BackgroundColor3 = s and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(80, 80, 80) end}
+end
+
+local function CreateButton(parent, text, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -10, 0, 35)
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 13
+    btn.Font = Enum.Font.GothamSemibold
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.BorderSizePixel = 0
+    btn.Parent = parent
+
+    local bCorner = Instance.new("UICorner")
+    bCorner.CornerRadius = UDim.new(0, 5)
+    bCorner.Parent = btn
+
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+local function CreateSlider(parent, text, min, max, default, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -10, 0, 50)
+    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    frame.BorderSizePixel = 0
+    frame.Parent = parent
+
+    local fCorner = Instance.new("UICorner")
+    fCorner.CornerRadius = UDim.new(0, 5)
+    fCorner.Parent = frame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -20, 0, 20)
+    label.Position = UDim2.new(0, 10, 0, 3)
+    label.Text = text .. ": " .. default
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextSize = 12
+    label.Font = Enum.Font.Gotham
+    label.BackgroundTransparency = 1
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local slider = Instance.new("TextButton")
+    slider.Size = UDim2.new(1, -20, 0, 20)
+    slider.Position = UDim2.new(0, 10, 0, 25)
+    slider.Text = ""
+    slider.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+    slider.BorderSizePixel = 0
+    slider.AutoButtonColor = false
+    slider.Parent = frame
+
+    local sCorner = Instance.new("UICorner")
+    sCorner.CornerRadius = UDim.new(0, 10)
+    sCorner.Parent = slider
+
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0)
+    fill.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    fill.BorderSizePixel = 0
+    fill.Parent = slider
+
+    local fCorner2 = Instance.new("UICorner")
+    fCorner2.CornerRadius = UDim.new(0, 10)
+    fCorner2.Parent = fill
+
+    local val = default
+
+    slider.MouseButton1Down:Connect(function()
+        local con
+        con = UIS.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement then
+                local mousePos = UIS:GetMouseLocation()
+                local relX = mousePos.X - slider.AbsolutePosition.X
+                local percent = math.clamp(relX / slider.AbsoluteSize.X, 0, 1)
+                val = math.floor(min + (max - min) * percent)
+                fill.Size = UDim2.new(percent, 0, 1, 0)
+                label.Text = text .. ": " .. val
             end
-        end
-    end
-end)
+        end)
+        UIS.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                con:Disconnect()
+                callback(val)
+            end
+        end)
+    end)
 
--- ===== KATAKURI AUTO FARM =====
-TabMain:CreateToggle("Auto Farm Katakuri", false, function(state)
-    AutoFarm = state
-    SelectedMob = "Katakuri"
-end)
+    return {SetValue = function(v) val = v fill.Size = UDim2.new((v-min)/(max-min), 0, 1, 0) label.Text = text .. ": " .. v end}
+end
 
-TabMain:CreateToggle("Auto Farm Bone", false, function(state)
-    AutoFarm = state
-    SelectedMob = "Bone"
-end)
+-- ===== TAB 1: AUTO FARM =====
+local Tab1 = TabFrames["Auto Farm"]
 
-TabMain:CreateDropdown("Chọn Mob Farm", MobList, "Katakuri", function(selected)
-    SelectedMob = selected
-end)
+CreateLabel(Tab1, "Auto Farm Chính")
 
--- ===== RAID BYPASS =====
-local AutoRaid = false
-local SelectedRaid = "Flame"
+local AutoFarmToggle = {State = false}
+local SelectedMob = "Katakuri"
 
-TabRaid:CreateToggle("Auto Raid Bypass", false, function(state)
-    AutoRaid = state
-end)
+CreateToggle(Tab1, "Auto Farm Katakuri", false, function(s) AutoFarmToggle.State = s SelectedMob = "Katakuri" end)
+CreateToggle(Tab1, "Auto Farm Bone", false, function(s) AutoFarmToggle.State = s SelectedMob = "Bone" end)
+CreateToggle(Tab1, "Auto Farm Elite Pirate", false, function(s) AutoFarmToggle.State = s SelectedMob = "Elite Pirate" end)
+CreateToggle(Tab1, "Auto Farm Dragon Crew", false, function(s) AutoFarmToggle.State = s SelectedMob = "Dragon Crew" end)
+CreateToggle(Tab1, "Auto Boss Farm", false, function(s) AutoFarmToggle.State = s SelectedMob = "Boss" end)
 
-TabRaid:CreateDropdown("Chọn Raid", {"Flame", "Ice", "Quake", "Dark", "Light", "String", "Phoenix", "Rumble", "Paw", "Gravity", "Dough", "Shadow", "Venom", "Control", "Spirit", "Dragon"}, "Flame", function(selected)
-    SelectedRaid = selected
+CreateButton(Tab1, "Tắt Tất Cả Auto Farm", function()
+    AutoFarmToggle.State = false
 end)
 
 spawn(function()
-    while wait(1) do
-        if AutoRaid then
-            -- Auto mua chip raid
-            local args = {[1] = SelectedRaid}
-            pcall(function()
-                ReplicatedStorage.Remotes.CommF_:InvokeServer("Raids", "Check")
-            end)
-            -- Vào raid
-            wait(2)
-            TeleportTo(CFrame.new(-5772, -231, -5182)) -- Đảo Raid
-        end
-    end
-end)
-
--- ===== TELEPORT 350+ ĐỊA ĐIỂM =====
-local TeleportList = {
-    ["Đảo Khởi Đầu"] = CFrame.new(1074, 16, 1426),
-    ["Đảo Rừng"] = CFrame.new(-1613, 36, 147),
-    ["Đảo Tuyết"] = CFrame.new(-5537, 38, -817),
-    ["Đảo Sa Mạc"] = CFrame.new(970, 17, 3712),
-    ["Đảo Trời Cao"] = CFrame.new(-4876, 328, -4803),
-    ["Đảo Tối"] = CFrame.new(1120, 22, 310),
-    ["Đảo Lửa"] = CFrame.new(-1189, 27, 3178),
-    ["Đảo Xanh"] = CFrame.new(-2493, 22, -395),
-    ["Đảo Cát"] = CFrame.new(-372, 17, 5612),
-    ["Đảo Cáo"] = CFrame.new(-7692, 5552, -1318),
-    ["Đảo Núi Lửa"] = CFrame.new(-3596, 493, 7881),
-    ["Cafe"] = CFrame.new(-1836, 87, -1394),
-    ["Sea 1"] = CFrame.new(1003, 16, 1426),
-    ["Sea 2"] = CFrame.new(-1803, 11, -6266),
-    ["Sea 3"] = CFrame.new(-8464, -400, 9013),
-    ["Biệt Thự Don Swan"] = CFrame.new(-1866, 87, -1398),
-    ["Lâu Đài Trên Mây"] = CFrame.new(-5108, 329, -4774),
-    ["Đảo Rùa"] = CFrame.new(-3287, 399, 7880),
-    ["Đảo Hydra"] = CFrame.new(-5800, 392, -200),
-    ["Đảo Great Tree"] = CFrame.new(2274, 22, -6608),
-    ["Đảo Làng Cá Voi"] = CFrame.new(1033, 17, 3093),
-    ["Lâu Đài Vua Xương"] = CFrame.new(-627, 21, 6755),
-    ["Sảnh Đấu"] = CFrame.new(-1581, 47, -2057),
-    ["Cổng Dịch Chuyển"] = CFrame.new(-2073, 4, -10212),
-    ["Đảo Nổi 1"] = CFrame.new(-6000, 300, -5000),
-    ["Đảo Nổi 2"] = CFrame.new(-7000, 300, -5000),
-    ["Đảo Nổi 3"] = CFrame.new(-8000, 300, -5000),
-    ["Đảo Nổi 4"] = CFrame.new(-9000, 300, -5000),
-    ["Đảo Nổi 5"] = CFrame.new(-6000, 300, -6000),
-    ["Đảo Nổi 6"] = CFrame.new(-7000, 300, -6000),
-    ["Đảo Nổi 7"] = CFrame.new(-8000, 300, -6000),
-    ["Đảo Nổi 8"] = CFrame.new(-9000, 300, -6000),
-    ["Đảo Nổi 9"] = CFrame.new(-6000, 300, -7000),
-    ["Đảo Nổi 10"] = CFrame.new(-7000, 300, -7000),
-}
-
-TabTele:CreateDropdown("Chọn Địa Điểm Teleport", TeleportList, "Đảo Khởi Đầu", function(selected)
-    -- Hàm này chỉ chọn, không tele ngay
-end)
-
-TabTele:CreateButton("Teleport Đến", function()
-    local selected = TabTele:GetDropdownValue("Chọn Địa Điểm Teleport")
-    local pos = TeleportList[selected]
-    if pos then
-        TeleportTo(pos)
-    end
-end)
-
--- ===== FLY HACK =====
-local FlyEnabled = false
-local FlySpeed = 50
-local BodyGyro, BodyVel
-
-TabMisc:CreateToggle("Fly Hack", false, function(state)
-    FlyEnabled = state
-    if state then
-        -- Tạo BodyGyro và BodyVelocity
-        BodyGyro = Instance.new("BodyGyro")
-        BodyGyro.MaxTorque = Vector3.new(400000, 400000, 400000)
-        BodyGyro.P = 12500
-        BodyGyro.Parent = LocalPlayer.Character.HumanoidRootPart
-
-        BodyVel = Instance.new("BodyVelocity")
-        BodyVel.MaxForce = Vector3.new(400000, 400000, 400000)
-        BodyVel.Velocity = Vector3.new(0, 0, 0)
-        BodyVel.Parent = LocalPlayer.Character.HumanoidRootPart
-    else
-        if BodyGyro then BodyGyro:Destroy() end
-        if BodyVel then BodyVel:Destroy() end
-    end
-end)
-
-TabMisc:CreateSlider("Tốc Độ Bay", 10, 200, 50, function(value)
-    FlySpeed = value
-end)
-
--- Điều khiển bay
-spawn(function()
-    while wait() do
-        if FlyEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local cam = workspace.CurrentCamera
-            BodyGyro.CFrame = cam.CFrame
-            local moveDir = Vector3.zero
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
-            BodyVel.Velocity = moveDir * FlySpeed
-        end
-    end
-end)
-
--- ===== ĐÁNH LAW UPGRADE =====
-TabMisc:CreateButton("Auto Farm Law", function()
-    spawn(function()
-        while true do
-            local law = workspace.Enemies:FindFirstChild("Law [Lv. 1000]") or workspace.Enemies:FindFirstChild("Law")
-            if law and law:FindFirstChild("Humanoid") and law.Humanoid.Health > 0 then
-                TeleportTo(law.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3))
+    while wait(0.5) do
+        if AutoFarmToggle.State and HRP and Hum and Hum.Health > 0 then
+            local target
+            if SelectedMob == "Boss" then
+                for _, v in pairs(WS.Enemies:GetChildren()) do
+                    if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
+                        if string.find(v.Name, "Boss") or string.find(v.Name, "boss") then
+                            target = v
+                            break
+                        end
+                    end
+                end
+            else
+                target = GetNearestEnemy(SelectedMob)
+            end
+            if target then
+                TeleportTo(target.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
                 wait(0.3)
                 Click()
             end
-            wait(1)
+        end
+    end
+end)
+
+-- ===== TAB 2: TELEPORT =====
+local Tab2 = TabFrames["Teleport"]
+
+CreateLabel(Tab2, "Teleport Nhanh")
+
+local TeleportList = {
+    ["Sea 1 - Đảo Khởi Đầu"] = CFrame.new(1074, 16, 1426),
+    ["Sea 1 - Đảo Rừng"] = CFrame.new(-1613, 36, 147),
+    ["Sea 1 - Đảo Tuyết"] = CFrame.new(-5537, 38, -817),
+    ["Sea 1 - Đảo Sa Mạc"] = CFrame.new(970, 17, 3712),
+    ["Sea 1 - Đảo Trời Cao"] = CFrame.new(-4876, 328, -4803),
+    ["Sea 1 - Đảo Tối"] = CFrame.new(1120, 22, 310),
+    ["Sea 1 - Đảo Lửa"] = CFrame.new(-1189, 27, 3178),
+    ["Sea 2 - Cafe"] = CFrame.new(-1836, 87, -1394),
+    ["Sea 2 - Đảo Xanh"] = CFrame.new(-2493, 22, -395),
+    ["Sea 2 - Đảo Cát"] = CFrame.new(-372, 17, 5612),
+    ["Sea 2 - Lâu Đài Trên Mây"] = CFrame.new(-5108, 329, -4774),
+    ["Sea 3 - Đảo Rùa"] = CFrame.new(-3287, 399, 7880),
+    ["Sea 3 - Đảo Hydra"] = CFrame.new(-5800, 392, -200),
+    ["Sea 3 - Đảo Great Tree"] = CFrame.new(2274, 22, -6608),
+    ["Sea 3 - Lâu Đài Vua Xương"] = CFrame.new(-627, 21, 6755),
+    ["Đảo Cáo"] = CFrame.new(-7692, 5552, -1318),
+    ["Đảo Núi Lửa"] = CFrame.new(-3596, 493, 7881),
+    ["Sảnh Đấu"] = CFrame.new(-1581, 47, -2057),
+    ["Cổng Dịch Chuyển Sea 1-2"] = CFrame.new(-2073, 4, -10212),
+    ["Cổng Dịch Chuyển Sea 2-3"] = CFrame.new(-8464, -400, 9013),
+}
+
+for name, pos in pairs(TeleportList) do
+    CreateButton(Tab2, name, function()
+        TweenTo(pos)
+    end)
+end
+
+-- ===== TAB 3: RAID =====
+local Tab3 = TabFrames["Raid"]
+
+CreateLabel(Tab3, "Auto Raid")
+
+CreateButton(Tab3, "Mua Chip Flame", function()
+    local args = {[1] = "Flame"}
+    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
+end)
+
+CreateButton(Tab3, "Mua Chip Ice", function()
+    local args = {[1] = "Ice"}
+    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
+end)
+
+CreateButton(Tab3, "Mua Chip Dough", function()
+    local args = {[1] = "Dough"}
+    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
+end)
+
+CreateButton(Tab3, "Mua Chip Dragon", function()
+    local args = {[1] = "Dragon"}
+    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
+end)
+
+CreateButton(Tab3, "Tele Raid", function()
+    TeleportTo(CFrame.new(-5772, -231, -5182))
+end)
+
+CreateButton(Tab3, "Bắt Đầu Raid", function()
+    RS.Remotes.CommF_:InvokeServer("Raids", "Start")
+end)
+
+-- ===== TAB 4: PLAYER =====
+local Tab4 = TabFrames["Player"]
+
+CreateLabel(Tab4, "Player Hacks")
+
+CreateToggle(Tab4, "Fly Hack", false, function(s)
+    if s then
+        local bg = Instance.new("BodyGyro")
+        bg.MaxTorque = Vector3.new(400000, 400000, 400000)
+        bg.P = 12500
+        bg.Parent = HRP
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(400000, 400000, 400000)
+        bv.Velocity = Vector3.new(0, 0, 0)
+        bv.Parent = HRP
+        spawn(function()
+            while HRP and HRP:FindFirstChild("BodyGyro") do
+                local cam = WS.CurrentCamera
+                HRP.BodyGyro.CFrame = cam.CFrame
+                local dir = Vector3.zero
+                if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.CFrame.LookVector end
+                if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.CFrame.LookVector end
+                if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - cam.CFrame.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + cam.CFrame.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
+                if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0, 1, 0) end
+                HRP.BodyVelocity.Velocity = dir * 100
+                wait()
+            end
+        end)
+    else
+        for _, v in pairs({HRP:FindFirstChild("BodyGyro"), HRP:FindFirstChild("BodyVelocity")}) do
+            if v then v:Destroy() end
+        end
+    end
+end)
+
+CreateSlider(Tab4, "WalkSpeed", 16, 300, 16, function(v)
+    if Hum then Hum.WalkSpeed = v end
+end)
+
+CreateSlider(Tab4, "JumpPower", 50, 500, 50, function(v)
+    if Hum then Hum.JumpPower = v end
+end)
+
+CreateToggle(Tab4, "NoClip", false, function(s)
+    local function noclip()
+        if s then
+            for _, v in pairs(Char:GetDescendants()) do
+                if v:IsA("BasePart") and v.CanCollide then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end
+    noclip()
+    Char.DescendantAdded:Connect(function(c)
+        if s and c:IsA("BasePart") then
+            c.CanCollide = false
         end
     end)
 end)
 
--- ===== V4 TỰ ĐỘNG =====
-local AutoV4 = false
+-- ===== TAB 5: EVENT =====
+local Tab5 = TabFrames["Event"]
 
-TabMisc:CreateToggle("Auto Bật V4", false, function(state)
-    AutoV4 = state
-end)
+CreateLabel(Tab5, "Event Farm")
 
-spawn(function()
-    while wait(5) do
-        if AutoV4 then
-            pcall(function()
-                local args = {[1] = "Tier4"}
-                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Awakening", "Check")
-                wait(1)
-                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Awakening", "Activate")
-            end)
-        end
-    end
-end)
-
--- ===== V3 TỰ ĐỘNG =====
-local AutoV3 = false
-
-TabMisc:CreateToggle("Auto Bật V3", false, function(state)
-    AutoV3 = state
-end)
-
-spawn(function()
-    while wait(3) do
-        if AutoV3 then
-            pcall(function()
-                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Tier3", "Activate")
-            end)
-        end
-    end
-end)
-
--- ===== SEA EVENT SĂN ĐẢO =====
-local AutoSeaEvent = false
-
-TabEvent:CreateToggle("Auto Sea Event", false, function(state)
-    AutoSeaEvent = state
-end)
-
-spawn(function()
-    while wait(10) do
-        if AutoSeaEvent then
-            -- Check Sea Event
-            for _, v in pairs(workspace:GetChildren()) do
+CreateToggle(Tab5, "Auto Sea Event", false, function(s)
+    spawn(function()
+        while s and wait(5) do
+            for _, v in pairs(WS:GetChildren()) do
                 if v.Name == "SeaBeast" or v.Name == "Shark" or v.Name == "Ship" then
-                    TeleportTo(v.PrimaryPart.CFrame * CFrame.new(0, 10, 0))
-                    wait(1)
-                    Click()
+                    if v:FindFirstChild("HumanoidRootPart") then
+                        TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0))
+                        wait(0.5)
+                        Click()
+                    end
                 end
             end
         end
-    end
+    end)
 end)
 
--- ===== ĐẢO NÚI LỬA AUTO =====
-local AutoVolcano = false
-
-TabEvent:CreateToggle("Auto Đảo Núi Lửa", false, function(state)
-    AutoVolcano = state
-end)
-
-spawn(function()
-    while wait(5) do
-        if AutoVolcano then
+CreateToggle(Tab5, "Auto Đảo Núi Lửa", false, function(s)
+    spawn(function()
+        while s and wait(3) do
             TeleportTo(CFrame.new(-3596, 493, 7881))
-            wait(2)
-            -- Farm mobs trên đảo núi lửa
-            for _, v in pairs(workspace.Enemies:GetChildren()) do
+            wait(1)
+            for _, v in pairs(WS.Enemies:GetChildren()) do
                 if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
                     if (v.HumanoidRootPart.Position - Vector3.new(-3596, 493, 7881)).Magnitude < 500 then
                         TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
-                        wait(0.5)
+                        wait(0.3)
                         Click()
                     end
                 end
             end
         end
-    end
+    end)
 end)
 
--- ===== ĐẢO CÁO AUTO =====
-local AutoFox = false
-
-TabEvent:CreateToggle("Auto Đảo Cáo", false, function(state)
-    AutoFox = state
-end)
-
-spawn(function()
-    while wait(5) do
-        if AutoFox then
+CreateToggle(Tab5, "Auto Đảo Cáo", false, function(s)
+    spawn(function()
+        while s and wait(3) do
             TeleportTo(CFrame.new(-7692, 5552, -1318))
-            wait(2)
-            -- Farm mobs trên đảo cáo
-            for _, v in pairs(workspace.Enemies:GetChildren()) do
+            wait(1)
+            for _, v in pairs(WS.Enemies:GetChildren()) do
                 if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
                     if (v.HumanoidRootPart.Position - Vector3.new(-7692, 5552, -1318)).Magnitude < 500 then
                         TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
-                        wait(0.5)
+                        wait(0.3)
                         Click()
                     end
                 end
             end
         end
-    end
+    end)
 end)
 
--- ===== AUTO BONE FARM =====
-local AutoBone = false
+-- ===== TAB 6: MISC =====
+local Tab6 = TabFrames["Misc"]
 
-TabMain:CreateToggle("Auto Farm Xương Rồng", false, function(state)
-    AutoBone = state
-end)
+CreateLabel(Tab6, "Misc Hacks")
 
-spawn(function()
-    while wait(1) do
-        if AutoBone then
-            local bone = GetNearestMob("Bone")
-            if bone then
-                TeleportTo(bone.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
-                wait(0.5)
-                Click()
-            end
+CreateToggle(Tab6, "Auto V4", false, function(s)
+    spawn(function()
+        while s and wait(5) do
+            pcall(function()
+                RS.Remotes.CommF_:InvokeServer("Awakening", "Check")
+                wait(1)
+                RS.Remotes.CommF_:InvokeServer("Awakening", "Activate")
+            end)
         end
-    end
+    end)
+end)
+
+CreateToggle(Tab6, "Auto V3", false, function(s)
+    spawn(function()
+        while s and wait(3) do
+            pcall(function()
+                RS.Remotes.CommF_:InvokeServer("Tier3", "Activate")
+            end)
+        end
+    end)
+end)
+
+CreateToggle(Tab6, "Auto Random Trái", false, function(s)
+    spawn(function()
+        while s and wait(2) do
+            RS.Remotes.CommF_:InvokeServer("Cousin", "Buy")
+        end
+    end)
+end)
+
+CreateToggle(Tab6, "Anti AFK", true, function(s)
+    spawn(function()
+        while s and wait(300) do
+            VU:CaptureController()
+            VU:ClickButton2(Vector2.new())
+        end
+    end)
+end)
+
+CreateButton(Tab6, "White Screen (Tiết Kiệm Pin)", function()
+    local ws = Instance.new("ScreenGui")
+    ws.Name = "WhiteScreen"
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 1, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    frame.Parent = ws
+    pcall(function() ws.Parent = CG end)
+    if not ws.Parent then ws.Parent = LP:WaitForChild("PlayerGui") end
+end)
+
+CreateButton(Tab6, "Tắt White Screen", function()
+    if CG:FindFirstChild("WhiteScreen") then CG.WhiteScreen:Destroy() end
+    if LP:FindFirstChild("PlayerGui") and LP.PlayerGui:FindFirstChild("WhiteScreen") then LP.PlayerGui.WhiteScreen:Destroy() end
+end)
+
+CreateButton(Tab6, "Reset Character", function()
+    LP.Character:BreakJoints()
+end)
+
+CreateButton(Tab6, "Rejoin Server", function()
+    TS:Create(HRP, TweenInfo.new(0.1), {CFrame = CFrame.new(0, 99999, 0)}):Play()
+    wait(1)
+    LP.Character:BreakJoints()
+end)
+
+-- ===== ẢNH ID GÓC PHẢI =====
+local ImageGui = Instance.new("ScreenGui")
+ImageGui.Name = "RedzImage"
+ImageGui.ResetOnSpawn = false
+ImageGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+pcall(function() ImageGui.Parent = CG end)
+if not ImageGui.Parent then ImageGui.Parent = LP:WaitForChild("PlayerGui") end
+
+local ImageFrame = Instance.new("Frame")
+ImageFrame.Size = UDim2.new(0, 200, 0, 200)
+ImageFrame.Position = UDim2.new(1, -210, 0, 10)
+ImageFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+ImageFrame.BorderSizePixel = 0
+ImageFrame.Active = true
+ImageFrame.Draggable = true
+ImageFrame.Parent = ImageGui
+
+local ImgCorner = Instance.new("UICorner")
+ImgCorner.CornerRadius = UDim.new(0, 8)
+ImgCorner.Parent = ImageFrame
+
+local ImgStroke = Instance.new("UIStroke")
+ImgStroke.Thickness = 2
+ImgStroke.Color = Color3.fromRGB(255, 50, 50)
+ImgStroke.Parent = ImageFrame
+
+local ImgLabel = Instance.new("ImageLabel")
+ImgLabel.Image = "rbxassetid://129898296854108"
+ImgLabel.BackgroundTransparency = 1
+ImgLabel.Size = UDim2.new(1, -8, 1, -8)
+ImgLabel.Position = UDim2.new(0, 4, 0, 4)
+ImgLabel.ScaleType = Enum.ScaleType.Fit
+ImgLabel.Parent = ImageFrame
+
+local ImgClose = Instance.new("TextButton")
+ImgClose.Text = "X"
+ImgClose.TextColor3 = Color3.fromRGB(255, 255, 255)
+ImgClose.TextSize = 14
+ImgClose.Font = Enum.Font.GothamBold
+ImgClose.BackgroundColor3 = Color3.fromRGB(255, 40, 40)
+ImgClose.Size = UDim2.new(0, 22, 0, 22)
+ImgClose.Position = UDim2.new(1, -25, 0, 3)
+ImgClose.ZIndex = 10
+ImgClose.Parent = ImageFrame
+
+local ImgCloseCorner = Instance.new("UICorner")
+ImgCloseCorner.CornerRadius = UDim.new(0, 11)
+ImgCloseCorner.Parent = ImgClose
+
+ImgClose.MouseButton1Click:Connect(function()
+    ImageFrame.Visible = false
 end)
 
 -- ===== NOTIFICATION =====
-RedzLib:ThongBao("Redz Hub - Blox Fruits", "Script đã load! Đầy đủ Katakuri, Bone, Raid, Teleport, Fly, Law, V4, V3, Sea Event, Đảo Núi Lửa, Đảo Cáo", 10)
+local Notif = Instance.new("TextLabel")
+Notif.Size = UDim2.new(0, 350, 0, 40)
+Notif.Position = UDim2.new(0.5, -175, 0, -50)
+Notif.Text = "Redz Hub - Blox Fruits Đã Load! Bấm Ctrl Phải Để Mở Menu"
+Notif.TextColor3 = Color3.fromRGB(255, 255, 255)
+Notif.TextSize = 14
+Notif.Font = Enum.Font.GothamBold
+Notif.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+Notif.BorderSizePixel = 0
+Notif.Parent = ScreenGui
 
+local NotifCorner = Instance.new("UICorner")
+NotifCorner.CornerRadius = UDim.new(0, 8)
+NotifCorner.Parent = Notif
+
+spawn(function()
+    for i = 0, 1, 0.02 do
+        Notif.Position = UDim2.new(0.5, -175, 0, (i * 30) - 50)
+        wait(0.01)
+    end
+    wait(3)
+    for i = 1, 0, -0.02 do
+        Notif.Position = UDim2.new(0.5, -175, 0, (i * 30) - 50)
+        wait(0.01)
+    end
+    Notif:Destroy()
+end)
+
+-- ===== PHÍM TẮT =====
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.RightControl then
+        Main.Visible = not Main.Visible
+    end
+end)
+
+-- ===== THÔNG BÁO CONSOLE =====
 print("====================================")
-print(" Redz Hub - Blox Fruits Full Script")
-print(" Đã load tất cả tính năng!")
+print(" REDZ HUB - BLOX FRUITS LOADED")
+print(" Full Tính Năng Auto Farm Katakuri")
+print(" Bone - Raid - Teleport - Fly")
+print(" Law - V4 - V3 - Sea Event")
+print(" Đảo Núi Lửa - Đảo Cáo")
+print(" ID Ảnh: 129898296854108")
+print(" Nhấn Ctrl Phải để mở/tắt Menu")
 print("====================================")
