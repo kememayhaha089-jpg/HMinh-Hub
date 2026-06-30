@@ -1,6 +1,6 @@
 --[[
-    REDZ HUB - BLOX FRUITS ULTIMATE SCRIPT
-    FULL KILL AURA + BYPASS + AUTO RAID COMBO + ANTI CRASH
+    REDZ HUB - BLOX FRUITS ULTIMATE V3
+    FIX HIỆN MENU + NÚT BẬT BÊN TRÁI TO RÕ
     Tương thích: Delta Mobile, CodeX, Arceus X
     ID Ảnh: 129898296854108
 --]]
@@ -19,7 +19,6 @@ local RS = g:GetService("ReplicatedStorage")
 local WS = g:GetService("Workspace")
 local CG = g:GetService("CoreGui")
 local RunService = g:GetService("RunService")
-local HttpService = g:GetService("HttpService")
 
 -- Biến toàn cục
 local AutoFarmEnabled = false
@@ -30,8 +29,6 @@ local KillAuraEnabled = false
 local AutoRaidEnabled = false
 local AutoPvPEnabled = false
 local AutoBountyEnabled = false
-local AutoComboEnabled = false
-local AttackDistance = 50
 local KillAuraRange = 100
 local ComboSequence = {"Z", "X", "C", "V"}
 
@@ -45,248 +42,7 @@ LP.CharacterAdded:Connect(function(c)
     if NoClipEnabled then EnableNoClip() end
 end)
 
--- ===== 1. KILL AURA & ATTACK OPTIMIZER =====
-local function KillAuraLoop()
-    spawn(function()
-        while task.wait() do
-            if KillAuraEnabled and Char and HRP and Hum and Hum.Health > 0 then
-                pcall(function()
-                    local CombatWeapon = Char:FindFirstChildOfClass("Tool")
-                    if CombatWeapon and CombatWeapon:FindFirstChild("Handle") then
-                        for _, enemy in pairs(WS.Enemies:GetChildren()) do
-                            if enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
-                                local Distance = (HRP.Position - enemy.HumanoidRootPart.Position).Magnitude
-                                if Distance <= KillAuraRange then
-                                    -- Gửi tín hiệu sát thương trực tiếp
-                                    pcall(function()
-                                        if RS.Remotes:FindFirstChild("Validator") then
-                                            RS.Remotes.Validator:FireServer(math.random(1, 9999))
-                                        end
-                                    end)
-                                    -- Kích hoạt vũ khí
-                                    CombatWeapon:Activate()
-                                    -- Gửi gói tin trúng chiêu
-                                    pcall(function()
-                                        RS.Remotes.CommF_:InvokeServer("Attack", enemy.HumanoidRootPart.Position)
-                                    end)
-                                    -- Teleport quái về trước mặt để tối ưu sát thương
-                                    enemy.HumanoidRootPart.CFrame = HRP.CFrame * CFrame.new(0, 0, -5)
-                                    enemy.HumanoidRootPart.CanCollide = false
-                                    enemy.Humanoid:TakeDamage(10)
-                                end
-                            end
-                        end
-                    else
-                        -- Đánh tay không
-                        for _, enemy in pairs(WS.Enemies:GetChildren()) do
-                            if enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
-                                local Distance = (HRP.Position - enemy.HumanoidRootPart.Position).Magnitude
-                                if Distance <= KillAuraRange then
-                                    pcall(function()
-                                        RS.Remotes.CommF_:InvokeServer("Attack", enemy.HumanoidRootPart.Position)
-                                    end)
-                                    enemy.HumanoidRootPart.CFrame = HRP.CFrame * CFrame.new(0, 0, -5)
-                                    enemy.HumanoidRootPart.CanCollide = false
-                                    enemy.Humanoid:TakeDamage(10)
-                                end
-                            end
-                        end
-                    end
-                end)
-            else
-                task.wait(0.5)
-            end
-        end
-    end)
-end
-
--- Fast Attack Loop
-spawn(function()
-    while task.wait() do
-        if KillAuraEnabled and Char and HRP then
-            pcall(function()
-                local weapon = Char:FindFirstChildOfClass("Tool")
-                if weapon then
-                    weapon:Activate()
-                end
-                VIM:SendMouseButtonEvent(0, 0, 0, true, g, 0)
-                task.wait(0.01)
-                VIM:SendMouseButtonEvent(0, 0, 0, false, g, 0)
-            end)
-        else
-            task.wait(0.1)
-        end
-    end
-end)
-
--- ===== 2. BYPASS ANTI-CHEAT (METATABLE HOOKING) =====
-spawn(function()
-    pcall(function()
-        local RawMetatable = getrawmetatable(g)
-        setreadonly(RawMetatable, false)
-        local OldIndex = RawMetatable.__index
-
-        RawMetatable.__index = newcclosure(function(Object, Property)
-            if tostring(Object) == "Humanoid" and (Property == "WalkSpeed" or Property == "JumpPower") then
-                if Property == "WalkSpeed" then return 16 end
-                if Property == "JumpPower" then return 50 end
-            end
-            return OldIndex(Object, Property)
-        end)
-        setreadonly(RawMetatable, true)
-    end)
-end)
-
--- Namecall Hook để bypass kiểm tra tool
-spawn(function()
-    pcall(function()
-        local OldNamecall
-        OldNamecall = hookmetamethod(g, "__namecall", newcclosure(function(self, ...)
-            local args = {...}
-            local method = getnamecallmethod()
-            if method == "InvokeServer" and tostring(self) == "Remotes.CommF_" then
-                if args[1] == "CheckWalkSpeed" or args[1] == "CheckJumpPower" then
-                    return nil
-                end
-            end
-            return OldNamecall(self, ...)
-        end))
-    end)
-end)
-
--- ===== 3. AUTO RAID DUNGEON MASTER =====
-spawn(function()
-    while task.wait(0.5) do
-        if AutoRaidEnabled and Char and HRP then
-            pcall(function()
-                if WS:FindFirstChild("RaidIslands") then
-                    -- Đưa nhân vật lên cao an toàn
-                    HRP.CFrame = CFrame.new(0, 10000, 0)
-                    -- Gom quái về vị trí an toàn
-                    for _, enemy in pairs(WS.Enemies:GetChildren()) do
-                        if enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
-                            enemy.HumanoidRootPart.CFrame = HRP.CFrame * CFrame.new(0, 0, -5)
-                            enemy.HumanoidRootPart.CanCollide = false
-                            enemy.Humanoid:TakeDamage(10)
-                        end
-                    end
-                    -- Auto next island nếu phòng trống
-                    local enemyCount = 0
-                    for _, enemy in pairs(WS.Enemies:GetChildren()) do
-                        if enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
-                            enemyCount = enemyCount + 1
-                        end
-                    end
-                    if enemyCount == 0 then
-                        RS.Remotes.CommF_:InvokeServer("Raids", "NextIsland")
-                    end
-                end
-            end)
-        end
-    end
-end)
-
--- ===== 4. AUTO PVP BOUNTY COMBO =====
-local function ExecuteCombo(EnemyPlayer)
-    if not EnemyPlayer or not EnemyPlayer.Character or not EnemyPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
-    if EnemyPlayer == LP then return end
-
-    local TargetHRP = EnemyPlayer.Character.HumanoidRootPart
-    
-    -- Aimbot khóa mục tiêu
-    pcall(function()
-        WS.CurrentCamera.CFrame = CFrame.new(WS.CurrentCamera.CFrame.Position, TargetHRP.Position)
-    end)
-    
-    -- Teleport ra sau lưng đối thủ
-    local behindTarget = TargetHRP.CFrame * CFrame.new(0, 0, 3)
-    HRP.CFrame = behindTarget
-    
-    -- Thực hiện combo
-    for _, key in pairs(ComboSequence) do
-        local keyCode = Enum.KeyCode[key]
-        if keyCode then
-            VIM:SendKeyEvent(true, keyCode, false, g)
-            task.wait(0.1)
-            VIM:SendKeyEvent(false, keyCode, false, g)
-            task.wait(0.3)
-        end
-    end
-end
-
-spawn(function()
-    while task.wait(0.5) do
-        if AutoPvPEnabled and Char and HRP then
-            pcall(function()
-                local nearestPlayer = nil
-                local minDist = math.huge
-                for _, player in pairs(Players:GetPlayers()) do
-                    if player ~= LP and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-                        local dist = (HRP.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                        if dist < minDist and dist < 500 then
-                            minDist = dist
-                            nearestPlayer = player
-                        end
-                    end
-                end
-                if nearestPlayer then
-                    ExecuteCombo(nearestPlayer)
-                end
-            end)
-        end
-    end
-end)
-
--- Auto Bounty Hunt
-spawn(function()
-    while task.wait(1) do
-        if AutoBountyEnabled and Char and HRP then
-            pcall(function()
-                local nearestPlayer = nil
-                local minDist = math.huge
-                for _, player in pairs(Players:GetPlayers()) do
-                    if player ~= LP and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-                        local dist = (HRP.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                        if dist < minDist then
-                            minDist = dist
-                            nearestPlayer = player
-                        end
-                    end
-                end
-                if nearestPlayer then
-                    TeleportTo(nearestPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3))
-                    task.wait(0.2)
-                    ExecuteCombo(nearestPlayer)
-                end
-            end)
-        end
-    end
-end)
-
--- ===== 5. GARBAGE COLLECTOR & CRASH PREVENTION =====
-spawn(function()
-    while task.wait(60) do
-        pcall(function()
-            gcinfo()
-            collectgarbage("collect")
-        end)
-    end
-end)
-
--- Anti Memory Leak
-spawn(function()
-    while task.wait(120) do
-        pcall(function()
-            for _, v in pairs(CG:GetChildren()) do
-                if v:IsA("ScreenGui") and #v:GetChildren() == 0 then
-                    v:Destroy()
-                end
-            end
-        end)
-    end
-end)
-
--- ===== FUNCTIONS CƠ BẢN =====
+-- ===== FUNCTIONS =====
 local function TweenTo(pos)
     local tween = TS:Create(HRP, TweenInfo.new(0.5), {CFrame = pos})
     tween:Play()
@@ -318,53 +74,265 @@ local function GetNearestEnemy(name)
     return nearest
 end
 
--- ===== NÚT BẬT MENU BÊN TRÁI MÀN HÌNH =====
+-- ===== 1. KILL AURA =====
+spawn(function()
+    while task.wait() do
+        if KillAuraEnabled and Char and HRP and Hum and Hum.Health > 0 then
+            pcall(function()
+                for _, enemy in pairs(WS.Enemies:GetChildren()) do
+                    if enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+                        local dist = (HRP.Position - enemy.HumanoidRootPart.Position).Magnitude
+                        if dist <= KillAuraRange then
+                            enemy.HumanoidRootPart.CFrame = HRP.CFrame * CFrame.new(0, 0, -5)
+                            enemy.HumanoidRootPart.CanCollide = false
+                            enemy.Humanoid:TakeDamage(10)
+                            pcall(function() RS.Remotes.CommF_:InvokeServer("Attack", enemy.HumanoidRootPart.Position) end)
+                        end
+                    end
+                end
+                -- Auto click
+                local weapon = Char:FindFirstChildOfClass("Tool")
+                if weapon then weapon:Activate() end
+                VIM:SendMouseButtonEvent(0, 0, 0, true, g, 0)
+                task.wait(0.01)
+                VIM:SendMouseButtonEvent(0, 0, 0, false, g, 0)
+            end)
+        else
+            task.wait(0.3)
+        end
+    end
+end)
+
+-- ===== 2. BYPASS ANTICHEAT =====
+spawn(function()
+    pcall(function()
+        local mt = getrawmetatable(g)
+        setreadonly(mt, false)
+        local old = mt.__index
+        mt.__index = newcclosure(function(o, p)
+            if tostring(o) == "Humanoid" and (p == "WalkSpeed" or p == "JumpPower") then
+                if p == "WalkSpeed" then return 16 end
+                if p == "JumpPower" then return 50 end
+            end
+            return old(o, p)
+        end)
+        setreadonly(mt, true)
+    end)
+end)
+
+-- ===== 3. AUTO RAID =====
+spawn(function()
+    while task.wait(0.5) do
+        if AutoRaidEnabled and Char and HRP then
+            pcall(function()
+                if WS:FindFirstChild("RaidIslands") then
+                    HRP.CFrame = CFrame.new(0, 10000, 0)
+                    for _, enemy in pairs(WS.Enemies:GetChildren()) do
+                        if enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+                            enemy.HumanoidRootPart.CFrame = HRP.CFrame * CFrame.new(0, 0, -5)
+                            enemy.HumanoidRootPart.CanCollide = false
+                            enemy.Humanoid:TakeDamage(10)
+                        end
+                    end
+                    local count = 0
+                    for _, enemy in pairs(WS.Enemies:GetChildren()) do
+                        if enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then count = count + 1 end
+                    end
+                    if count == 0 then
+                        RS.Remotes.CommF_:InvokeServer("Raids", "NextIsland")
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- ===== 4. AUTO PVP =====
+local function ExecuteCombo(targetPlayer)
+    if not targetPlayer or targetPlayer == LP then return end
+    if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    local targetHRP = targetPlayer.Character.HumanoidRootPart
+    pcall(function() WS.CurrentCamera.CFrame = CFrame.new(WS.CurrentCamera.CFrame.Position, targetHRP.Position) end)
+    HRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 3)
+    for _, key in pairs(ComboSequence) do
+        local kc = Enum.KeyCode[key]
+        if kc then
+            VIM:SendKeyEvent(true, kc, false, g)
+            task.wait(0.1)
+            VIM:SendKeyEvent(false, kc, false, g)
+            task.wait(0.3)
+        end
+    end
+end
+
+spawn(function()
+    while task.wait(0.5) do
+        if AutoPvPEnabled and Char and HRP then
+            pcall(function()
+                local nearest, minDist = nil, math.huge
+                for _, p in pairs(Players:GetPlayers()) do
+                    if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                        local d = (HRP.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                        if d < minDist and d < 500 then minDist = d nearest = p end
+                    end
+                end
+                if nearest then ExecuteCombo(nearest) end
+            end)
+        end
+    end
+end)
+
+spawn(function()
+    while task.wait(1) do
+        if AutoBountyEnabled and Char and HRP then
+            pcall(function()
+                local nearest, minDist = nil, math.huge
+                for _, p in pairs(Players:GetPlayers()) do
+                    if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                        local d = (HRP.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                        if d < minDist then minDist = d nearest = p end
+                    end
+                end
+                if nearest then
+                    TeleportTo(nearest.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3))
+                    task.wait(0.2)
+                    ExecuteCombo(nearest)
+                end
+            end)
+        end
+    end
+end)
+
+-- ===== 5. GARBAGE COLLECTOR =====
+spawn(function()
+    while task.wait(60) do
+        pcall(function() gcinfo() collectgarbage("collect") end)
+    end
+end)
+
+-- ===== FLY HACK =====
+function EnableFly()
+    if not HRP then return end
+    DisableFly()
+    local bg = Instance.new("BodyGyro")
+    bg.Name = "FlyGyro"
+    bg.MaxTorque = Vector3.new(400000, 400000, 400000)
+    bg.P = 12500
+    bg.Parent = HRP
+    local bv = Instance.new("BodyVelocity")
+    bv.Name = "FlyVel"
+    bv.MaxForce = Vector3.new(400000, 400000, 400000)
+    bv.Velocity = Vector3.new(0, 0, 0)
+    bv.Parent = HRP
+end
+
+function DisableFly()
+    if HRP then
+        for _, v in pairs({HRP:FindFirstChild("FlyGyro"), HRP:FindFirstChild("FlyVel")}) do
+            if v then v:Destroy() end
+        end
+    end
+end
+
+spawn(function()
+    while task.wait() do
+        if FlyEnabled and HRP and HRP:FindFirstChild("FlyGyro") then
+            local cam = WS.CurrentCamera
+            HRP.FlyGyro.CFrame = cam.CFrame
+            local dir = Vector3.zero
+            if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - cam.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + cam.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
+            if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0, 1, 0) end
+            HRP.FlyVel.Velocity = dir * 120
+        else
+            task.wait(0.1)
+        end
+    end
+end)
+
+-- NoClip
+function EnableNoClip()
+    for _, v in pairs(Char:GetDescendants()) do
+        if v:IsA("BasePart") and v.CanCollide then v.CanCollide = false end
+    end
+end
+
+Char.DescendantAdded:Connect(function(c)
+    if NoClipEnabled and c:IsA("BasePart") then task.wait() c.CanCollide = false end
+end)
+
+-- ===== TẠO GUI TRỰC TIẾP VÀO PLAYERGUI (ĐẢM BẢO HIỆN) =====
+local PlayerGui = LP:WaitForChild("PlayerGui")
+
+-- Xóa GUI cũ nếu có
+for _, name in pairs({"RedzToggleBtn", "RedzHubMain", "RedzImageCorner"}) do
+    if PlayerGui:FindFirstChild(name) then PlayerGui[name]:Destroy() end
+end
+for _, name in pairs({"RedzToggleBtn", "RedzHubMain", "RedzImageCorner"}) do
+    if CG:FindFirstChild(name) then CG[name]:Destroy() end
+end
+
+-- ===== NÚT BẬT MENU BÊN TRÁI =====
 local ToggleButton = Instance.new("ScreenGui")
 ToggleButton.Name = "RedzToggleBtn"
 ToggleButton.ResetOnSpawn = false
 ToggleButton.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-pcall(function() ToggleButton.Parent = CG end)
-if not ToggleButton.Parent then ToggleButton.Parent = LP:WaitForChild("PlayerGui") end
+ToggleButton.Parent = PlayerGui
 
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Name = "MenuToggle"
-ToggleBtn.Size = UDim2.new(0, 55, 0, 55)
-ToggleBtn.Position = UDim2.new(0, 10, 0.5, -27)
+ToggleBtn.Size = UDim2.new(0, 65, 0, 65)
+ToggleBtn.Position = UDim2.new(0, 15, 0.5, -32)
 ToggleBtn.Text = "🔴"
-ToggleBtn.TextSize = 28
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ToggleBtn.TextSize = 32
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ToggleBtn.BorderSizePixel = 0
 ToggleBtn.Active = true
 ToggleBtn.Draggable = true
+ToggleBtn.ZIndex = 1000
 ToggleBtn.Parent = ToggleButton
 
 local ToggleCorner = Instance.new("UICorner")
-ToggleCorner.CornerRadius = UDim.new(0, 27)
+ToggleCorner.CornerRadius = UDim.new(0, 32)
 ToggleCorner.Parent = ToggleBtn
 
 local ToggleStroke = Instance.new("UIStroke")
-ToggleStroke.Thickness = 3
+ToggleStroke.Thickness = 4
 ToggleStroke.Color = Color3.fromRGB(255, 50, 50)
 ToggleStroke.Parent = ToggleBtn
+
+-- Label dưới nút
+local ToggleLabel = Instance.new("TextLabel")
+ToggleLabel.Size = UDim2.new(0, 65, 0, 20)
+ToggleLabel.Position = UDim2.new(0, 15, 0.5, 38)
+ToggleLabel.Text = "MENU"
+ToggleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleLabel.TextSize = 11
+ToggleLabel.Font = Enum.Font.GothamBold
+ToggleLabel.BackgroundTransparency = 1
+ToggleLabel.Parent = ToggleButton
 
 -- ===== MENU CHÍNH =====
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "RedzHubMain"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-pcall(function() ScreenGui.Parent = CG end)
-if not ScreenGui.Parent then ScreenGui.Parent = LP:WaitForChild("PlayerGui") end
+ScreenGui.Parent = PlayerGui
 
 local Main = Instance.new("Frame")
 Main.Name = "MainFrame"
-Main.Size = UDim2.new(0, 540, 0, 400)
-Main.Position = UDim2.new(0.5, -270, 0.5, -200)
-Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Main.Size = UDim2.new(0, 500, 0, 350)
+Main.Position = UDim2.new(0.5, -250, 0.5, -175)
+Main.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
 Main.BorderSizePixel = 0
 Main.Active = true
 Main.Draggable = true
-Main.Visible = false
+Main.Visible = true -- MẶC ĐỊNH HIỆN
+Main.ZIndex = 500
 Main.Parent = ScreenGui
 
 local MainCorner = Instance.new("UICorner")
@@ -378,7 +346,7 @@ MainStroke.Parent = Main
 
 -- Top Bar
 local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, 0, 0, 40)
+TopBar.Size = UDim2.new(1, 0, 0, 36)
 TopBar.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
 TopBar.BorderSizePixel = 0
 TopBar.Parent = Main
@@ -395,22 +363,22 @@ TopCover.BorderSizePixel = 0
 TopCover.Parent = TopBar
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -50, 1, 0)
-Title.Position = UDim2.new(0, 15, 0, 0)
-Title.Text = "🔥 REDZ HUB - ULTIMATE 🔥"
+Title.Size = UDim2.new(1, -45, 1, 0)
+Title.Position = UDim2.new(0, 12, 0, 0)
+Title.Text = "🔥 REDZ HUB - BLOX FRUITS 🔥"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 16
+Title.TextSize = 14
 Title.Font = Enum.Font.GothamBold
 Title.BackgroundTransparency = 1
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
 
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 32, 0, 32)
-CloseBtn.Position = UDim2.new(1, -38, 0, 4)
+CloseBtn.Size = UDim2.new(0, 28, 0, 28)
+CloseBtn.Position = UDim2.new(1, -34, 0, 4)
 CloseBtn.Text = "✕"
 CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.TextSize = 18
+CloseBtn.TextSize = 16
 CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
 CloseBtn.BackgroundTransparency = 0.3
@@ -418,7 +386,7 @@ CloseBtn.BorderSizePixel = 0
 CloseBtn.Parent = TopBar
 
 local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 16)
+CloseCorner.CornerRadius = UDim.new(0, 14)
 CloseCorner.Parent = CloseBtn
 
 CloseBtn.MouseButton1Click:Connect(function()
@@ -427,50 +395,46 @@ CloseBtn.MouseButton1Click:Connect(function()
     ToggleStroke.Color = Color3.fromRGB(255, 50, 50)
 end)
 
--- Tab System
-local TabNames = {"⚔️ Kill Aura", "🏠 Auto Farm", "🌍 Teleport", "🏰 Raid", "⚡ PvP", "👤 Player", "🎪 Event", "🔧 Misc"}
+-- ===== TAB SYSTEM =====
+local TabNames = {"⚔️Kill Aura", "🏠Farm", "🌍Tele", "🏰Raid", "⚡PvP", "👤Player", "🎪Event", "🔧Misc"}
 local TabButtons = {}
 local TabFrames = {}
 
 local TabBtnFrame = Instance.new("Frame")
-TabBtnFrame.Size = UDim2.new(0, 130, 1, -40)
-TabBtnFrame.Position = UDim2.new(0, 0, 0, 40)
-TabBtnFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+TabBtnFrame.Size = UDim2.new(0, 115, 1, -36)
+TabBtnFrame.Position = UDim2.new(0, 0, 0, 36)
+TabBtnFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 TabBtnFrame.BorderSizePixel = 0
 TabBtnFrame.Parent = Main
 
 for i, name in pairs(TabNames) do
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -10, 0, 34)
-    btn.Position = UDim2.new(0, 5, 0, (i-1)*37 + 5)
+    btn.Size = UDim2.new(1, -8, 0, 30)
+    btn.Position = UDim2.new(0, 4, 0, (i-1)*33 + 4)
     btn.Text = name
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.TextSize = 11
     btn.Font = Enum.Font.GothamSemibold
-    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     btn.BorderSizePixel = 0
     btn.Parent = TabBtnFrame
 
     local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.CornerRadius = UDim.new(0, 5)
     btnCorner.Parent = btn
 
     local frame = Instance.new("ScrollingFrame")
-    frame.Size = UDim2.new(1, -135, 1, -45)
-    frame.Position = UDim2.new(0, 135, 0, 40)
-    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    frame.Size = UDim2.new(1, -120, 1, -40)
+    frame.Position = UDim2.new(0, 120, 0, 36)
+    frame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
     frame.BorderSizePixel = 0
     frame.ScrollBarThickness = 4
     frame.ScrollBarImageColor3 = Color3.fromRGB(255, 50, 50)
     frame.Visible = (i == 1)
     frame.Parent = Main
 
-    local frameCorner = Instance.new("UICorner")
-    frameCorner.CornerRadius = UDim.new(0, 10)
-    frameCorner.Parent = frame
-
     local UIListLayout = Instance.new("UIListLayout")
-    UIListLayout.Padding = UDim.new(0, 4)
+    UIListLayout.Padding = UDim.new(0, 3)
     UIListLayout.Parent = frame
 
     TabButtons[name] = btn
@@ -479,7 +443,7 @@ for i, name in pairs(TabNames) do
     btn.MouseButton1Click:Connect(function()
         for _, f in pairs(TabFrames) do f.Visible = false end
         frame.Visible = true
-        for _, b in pairs(TabButtons) do b.BackgroundColor3 = Color3.fromRGB(50, 50, 50) end
+        for _, b in pairs(TabButtons) do b.BackgroundColor3 = Color3.fromRGB(45, 45, 45) end
         btn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
     end)
 end
@@ -489,69 +453,68 @@ TabButtons[TabNames[1]].BackgroundColor3 = Color3.fromRGB(255, 50, 50)
 -- ===== HELPER UI =====
 local function CreateLabel(parent, text)
     local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -10, 0, 26)
+    lbl.Size = UDim2.new(1, -8, 0, 22)
     lbl.Text = "── " .. text .. " ──"
     lbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-    lbl.TextSize = 13
+    lbl.TextSize = 12
     lbl.Font = Enum.Font.GothamBold
     lbl.BackgroundTransparency = 1
     lbl.TextXAlignment = Enum.TextXAlignment.Center
     lbl.Parent = parent
-    return lbl
 end
 
 local function CreateToggle(parent, text, default, callback)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -10, 0, 30)
-    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    frame.Size = UDim2.new(1, -8, 0, 28)
+    frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     frame.BorderSizePixel = 0
     frame.Parent = parent
 
     local fCorner = Instance.new("UICorner")
-    fCorner.CornerRadius = UDim.new(0, 5)
+    fCorner.CornerRadius = UDim.new(0, 4)
     fCorner.Parent = frame
 
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0, 250, 1, 0)
-    label.Position = UDim2.new(0, 10, 0, 0)
+    label.Size = UDim2.new(0, 220, 1, 0)
+    label.Position = UDim2.new(0, 8, 0, 0)
     label.Text = text
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextSize = 12
+    label.TextSize = 11
     label.Font = Enum.Font.Gotham
     label.BackgroundTransparency = 1
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = frame
 
     local toggle = Instance.new("TextButton")
-    toggle.Size = UDim2.new(0, 44, 0, 22)
-    toggle.Position = UDim2.new(1, -54, 0, 4)
+    toggle.Size = UDim2.new(0, 40, 0, 20)
+    toggle.Position = UDim2.new(1, -48, 0, 4)
     toggle.Text = ""
-    toggle.BackgroundColor3 = default and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(80, 80, 80)
+    toggle.BackgroundColor3 = default and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(70, 70, 70)
     toggle.BorderSizePixel = 0
     toggle.AutoButtonColor = false
     toggle.Parent = frame
 
     local tCorner = Instance.new("UICorner")
-    tCorner.CornerRadius = UDim.new(0, 11)
+    tCorner.CornerRadius = UDim.new(0, 10)
     tCorner.Parent = toggle
 
     local dot = Instance.new("Frame")
-    dot.Size = UDim2.new(0, 16, 0, 16)
-    dot.Position = default and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+    dot.Size = UDim2.new(0, 14, 0, 14)
+    dot.Position = default and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)
     dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     dot.BorderSizePixel = 0
     dot.Parent = toggle
 
     local dotCorner = Instance.new("UICorner")
-    dotCorner.CornerRadius = UDim.new(0, 8)
+    dotCorner.CornerRadius = UDim.new(0, 7)
     dotCorner.Parent = dot
 
     local state = default
 
     toggle.MouseButton1Click:Connect(function()
         state = not state
-        toggle.BackgroundColor3 = state and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(80, 80, 80)
-        dot.Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+        toggle.BackgroundColor3 = state and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(70, 70, 70)
+        dot.Position = state and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)
         callback(state)
     end)
 
@@ -560,17 +523,17 @@ end
 
 local function CreateButton(parent, text, callback)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -10, 0, 32)
+    btn.Size = UDim2.new(1, -8, 0, 28)
     btn.Text = text
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextSize = 12
+    btn.TextSize = 11
     btn.Font = Enum.Font.GothamSemibold
-    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     btn.BorderSizePixel = 0
     btn.Parent = parent
 
     local bCorner = Instance.new("UICorner")
-    bCorner.CornerRadius = UDim.new(0, 5)
+    bCorner.CornerRadius = UDim.new(0, 4)
     bCorner.Parent = btn
 
     btn.MouseButton1Click:Connect(callback)
@@ -579,35 +542,35 @@ end
 
 local function CreateSlider(parent, text, min, max, default, callback)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -10, 0, 50)
-    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    frame.Size = UDim2.new(1, -8, 0, 45)
+    frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     frame.BorderSizePixel = 0
     frame.Parent = parent
 
     local fCorner = Instance.new("UICorner")
-    fCorner.CornerRadius = UDim.new(0, 5)
+    fCorner.CornerRadius = UDim.new(0, 4)
     fCorner.Parent = frame
 
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -20, 0, 20)
-    label.Position = UDim2.new(0, 10, 0, 3)
+    label.Size = UDim2.new(1, -16, 0, 18)
+    label.Position = UDim2.new(0, 8, 0, 2)
     label.Text = text .. ": " .. default
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextSize = 12
+    label.TextSize = 11
     label.Font = Enum.Font.Gotham
     label.BackgroundTransparency = 1
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = frame
 
     local sliderBg = Instance.new("Frame")
-    sliderBg.Size = UDim2.new(1, -20, 0, 22)
-    sliderBg.Position = UDim2.new(0, 10, 0, 25)
-    sliderBg.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    sliderBg.Size = UDim2.new(1, -16, 0, 20)
+    sliderBg.Position = UDim2.new(0, 8, 0, 22)
+    sliderBg.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
     sliderBg.BorderSizePixel = 0
     sliderBg.Parent = frame
 
     local sCorner = Instance.new("UICorner")
-    sCorner.CornerRadius = UDim.new(0, 11)
+    sCorner.CornerRadius = UDim.new(0, 10)
     sCorner.Parent = sliderBg
 
     local fill = Instance.new("Frame")
@@ -617,7 +580,7 @@ local function CreateSlider(parent, text, min, max, default, callback)
     fill.Parent = sliderBg
 
     local fillCorner = Instance.new("UICorner")
-    fillCorner.CornerRadius = UDim.new(0, 11)
+    fillCorner.CornerRadius = UDim.new(0, 10)
     fillCorner.Parent = fill
 
     local val = default
@@ -648,60 +611,20 @@ local function CreateSlider(parent, text, min, max, default, callback)
 end
 
 -- ===== TAB 1: KILL AURA =====
-local Tab1 = TabFrames[TabNames[1]]
+local T1 = TabFrames[TabNames[1]]
 
-CreateLabel(Tab1, "KILL AURA - TRIỆT HẠ TOÀN DIỆN")
+CreateLabel(T1, "KILL AURA")
+CreateToggle(T1, "⚡ Kill Aura", false, function(s) KillAuraEnabled = s end)
+CreateSlider(T1, "Phạm Vi", 10, 300, 100, function(v) KillAuraRange = v end)
 
-CreateToggle(Tab1, "⚡ KILL AURA (Tự Động Hủy Diệt)", false, function(s)
-    KillAuraEnabled = s
-    if s then
-        KillAuraLoop()
-    end
-end)
+CreateLabel(T1, "AUTO FARM")
+CreateToggle(T1, "Farm Katakuri", false, function(s) AutoFarmEnabled = s SelectedFarmMob = "Katakuri" end)
+CreateToggle(T1, "Farm Bone", false, function(s) AutoFarmEnabled = s SelectedFarmMob = "Bone" end)
+CreateToggle(T1, "Farm Elite Pirate", false, function(s) AutoFarmEnabled = s SelectedFarmMob = "Elite Pirate" end)
+CreateToggle(T1, "Farm Dough King", false, function(s) AutoFarmEnabled = s SelectedFarmMob = "Dough King" end)
+CreateToggle(T1, "Farm Cake Prince", false, function(s) AutoFarmEnabled = s SelectedFarmMob = "Cake Prince" end)
+CreateButton(T1, "❌ TẮT HẾT", function() AutoFarmEnabled = false KillAuraEnabled = false SelectedFarmMob = "" end)
 
-CreateSlider(Tab1, "📏 Phạm Vi Kill Aura", 10, 300, 100, function(v)
-    KillAuraRange = v
-end)
-
-CreateLabel(Tab1, "AUTO FARM KẾT HỢP KILL AURA")
-
-CreateToggle(Tab1, "Auto Farm Katakuri", false, function(s)
-    AutoFarmEnabled = s
-    SelectedFarmMob = "Katakuri"
-end)
-
-CreateToggle(Tab1, "Auto Farm Bone", false, function(s)
-    AutoFarmEnabled = s
-    SelectedFarmMob = "Bone"
-end)
-
-CreateToggle(Tab1, "Auto Farm Dough King", false, function(s)
-    AutoFarmEnabled = s
-    SelectedFarmMob = "Dough King"
-end)
-
-CreateToggle(Tab1, "Auto Farm Cake Prince", false, function(s)
-    AutoFarmEnabled = s
-    SelectedFarmMob = "Cake Prince"
-end)
-
-CreateToggle(Tab1, "Auto Farm Elite Pirate", false, function(s)
-    AutoFarmEnabled = s
-    SelectedFarmMob = "Elite Pirate"
-end)
-
-CreateToggle(Tab1, "Auto Farm Dragon Crew", false, function(s)
-    AutoFarmEnabled = s
-    SelectedFarmMob = "Dragon Crew"
-end)
-
-CreateButton(Tab1, "❌ TẮT TẤT CẢ", function()
-    AutoFarmEnabled = false
-    KillAuraEnabled = false
-    SelectedFarmMob = ""
-end)
-
--- Auto Farm Loop (dùng kill aura để hạ nhanh)
 spawn(function()
     while task.wait(0.3) do
         if AutoFarmEnabled and SelectedFarmMob ~= "" and HRP and Hum and Hum.Health > 0 then
@@ -715,251 +638,84 @@ spawn(function()
 end)
 
 -- ===== TAB 2: TELEPORT =====
-local Tab2 = TabFrames[TabNames[2]]
+local T2 = TabFrames[TabNames[2]]
 
-CreateLabel(Tab2, "SEA 1")
-CreateButton(Tab2, "Đảo Khởi Đầu", function() TweenTo(CFrame.new(1074, 16, 1426)) end)
-CreateButton(Tab2, "Đảo Rừng", function() TweenTo(CFrame.new(-1613, 36, 147)) end)
-CreateButton(Tab2, "Đảo Tuyết", function() TweenTo(CFrame.new(-5537, 38, -817)) end)
-CreateButton(Tab2, "Đảo Sa Mạc", function() TweenTo(CFrame.new(970, 17, 3712)) end)
-CreateButton(Tab2, "Đảo Trời Cao", function() TweenTo(CFrame.new(-4876, 328, -4803)) end)
-CreateButton(Tab2, "Đảo Tối", function() TweenTo(CFrame.new(1120, 22, 310)) end)
+CreateLabel(T2, "SEA 1")
+CreateButton(T2, "Đảo Khởi Đầu", function() TweenTo(CFrame.new(1074, 16, 1426)) end)
+CreateButton(T2, "Đảo Rừng", function() TweenTo(CFrame.new(-1613, 36, 147)) end)
+CreateButton(T2, "Đảo Tuyết", function() TweenTo(CFrame.new(-5537, 38, -817)) end)
+CreateButton(T2, "Đảo Sa Mạc", function() TweenTo(CFrame.new(970, 17, 3712)) end)
+CreateButton(T2, "Đảo Trời Cao", function() TweenTo(CFrame.new(-4876, 328, -4803)) end)
 
-CreateLabel(Tab2, "SEA 2")
-CreateButton(Tab2, "Cafe Trung Tâm", function() TweenTo(CFrame.new(-1836, 87, -1394)) end)
-CreateButton(Tab2, "Đảo Xanh", function() TweenTo(CFrame.new(-2493, 22, -395)) end)
-CreateButton(Tab2, "Lâu Đài Trên Mây", function() TweenTo(CFrame.new(-5108, 329, -4774)) end)
-CreateButton(Tab2, "Biệt Thự Don Swan", function() TweenTo(CFrame.new(-1866, 87, -1398)) end)
+CreateLabel(T2, "SEA 2")
+CreateButton(T2, "Cafe Trung Tâm", function() TweenTo(CFrame.new(-1836, 87, -1394)) end)
+CreateButton(T2, "Đảo Xanh", function() TweenTo(CFrame.new(-2493, 22, -395)) end)
+CreateButton(T2, "Lâu Đài Trên Mây", function() TweenTo(CFrame.new(-5108, 329, -4774)) end)
 
-CreateLabel(Tab2, "SEA 3")
-CreateButton(Tab2, "Đảo Rùa", function() TweenTo(CFrame.new(-3287, 399, 7880)) end)
-CreateButton(Tab2, "Đảo Hydra", function() TweenTo(CFrame.new(-5800, 392, -200)) end)
-CreateButton(Tab2, "Great Tree", function() TweenTo(CFrame.new(2274, 22, -6608)) end)
-CreateButton(Tab2, "Đảo Núi Lửa", function() TweenTo(CFrame.new(-3596, 493, 7881)) end)
-CreateButton(Tab2, "Đảo Cáo", function() TweenTo(CFrame.new(-7692, 5552, -1318)) end)
+CreateLabel(T2, "SEA 3")
+CreateButton(T2, "Đảo Rùa", function() TweenTo(CFrame.new(-3287, 399, 7880)) end)
+CreateButton(T2, "Đảo Hydra", function() TweenTo(CFrame.new(-5800, 392, -200)) end)
+CreateButton(T2, "Đảo Núi Lửa", function() TweenTo(CFrame.new(-3596, 493, 7881)) end)
+CreateButton(T2, "Đảo Cáo", function() TweenTo(CFrame.new(-7692, 5552, -1318)) end)
 
 -- ===== TAB 3: RAID =====
-local Tab3 = TabFrames[TabNames[3]]
+local T3 = TabFrames[TabNames[3]]
 
-CreateLabel(Tab3, "AUTO RAID MASTER")
-
-CreateToggle(Tab3, "🏰 Auto Raid (Tự Động Clear)", false, function(s)
-    AutoRaidEnabled = s
-end)
-
-CreateButton(Tab3, "Tele Raid Room", function()
-    TeleportTo(CFrame.new(-5772, -231, -5182))
-end)
-
-CreateButton(Tab3, "Mua Chip Flame", function()
-    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
-end)
-
-CreateButton(Tab3, "Mua Chip Dough", function()
-    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
-end)
-
-CreateButton(Tab3, "Mua Chip Dragon", function()
-    RS.Remotes.CommF_:InvokeServer("Raids", "Check")
-end)
-
-CreateButton(Tab3, "Bắt Đầu Raid", function()
-    RS.Remotes.CommF_:InvokeServer("Raids", "Start")
-end)
-
-CreateButton(Tab3, "Next Island", function()
-    RS.Remotes.CommF_:InvokeServer("Raids", "NextIsland")
-end)
+CreateLabel(T3, "AUTO RAID")
+CreateToggle(T3, "🏰 Auto Raid", false, function(s) AutoRaidEnabled = s end)
+CreateButton(T3, "Tele Raid Room", function() TeleportTo(CFrame.new(-5772, -231, -5182)) end)
+CreateButton(T3, "Mua Chip", function() RS.Remotes.CommF_:InvokeServer("Raids", "Check") end)
+CreateButton(T3, "Bắt Đầu Raid", function() RS.Remotes.CommF_:InvokeServer("Raids", "Start") end)
+CreateButton(T3, "Next Island", function() RS.Remotes.CommF_:InvokeServer("Raids", "NextIsland") end)
 
 -- ===== TAB 4: PVP =====
-local Tab4 = TabFrames[TabNames[4]]
+local T4 = TabFrames[TabNames[4]]
 
-CreateLabel(Tab4, "AUTO PVP COMBO")
-
-CreateToggle(Tab4, "⚔️ Auto PvP Combo", false, function(s)
-    AutoPvPEnabled = s
-end)
-
-CreateToggle(Tab4, "💀 Auto Bounty Hunt", false, function(s)
-    AutoBountyEnabled = s
-end)
-
-CreateLabel(Tab4, "COMBO SEQUENCE")
-
-CreateButton(Tab4, "Combo: Z > X > C > V", function()
-    ComboSequence = {"Z", "X", "C", "V"}
-end)
-
-CreateButton(Tab4, "Combo: V > C > X > Z", function()
-    ComboSequence = {"V", "C", "X", "Z"}
-end)
-
-CreateButton(Tab4, "Combo: X > Z > V > C", function()
-    ComboSequence = {"X", "Z", "V", "C"}
-end)
+CreateLabel(T4, "AUTO PVP")
+CreateToggle(T4, "⚔️ Auto PvP Combo", false, function(s) AutoPvPEnabled = s end)
+CreateToggle(T4, "💀 Auto Bounty Hunt", false, function(s) AutoBountyEnabled = s end)
+CreateButton(T4, "Combo Z>X>C>V", function() ComboSequence = {"Z","X","C","V"} end)
+CreateButton(T4, "Combo V>C>X>Z", function() ComboSequence = {"V","C","X","Z"} end)
 
 -- ===== TAB 5: PLAYER =====
-local Tab5 = TabFrames[TabNames[5]]
+local T5 = TabFrames[TabNames[5]]
 
-CreateLabel(Tab5, "CHARACTER HACKS")
-
-CreateToggle(Tab5, "🕊️ Fly Hack (WASD Space Shift)", false, function(s)
-    FlyEnabled = s
-    if s then EnableFly() else DisableFly() end
-end)
-
-function EnableFly()
-    if not HRP then return end
-    DisableFly()
-    local bg = Instance.new("BodyGyro")
-    bg.Name = "FlyGyro"
-    bg.MaxTorque = Vector3.new(400000, 400000, 400000)
-    bg.P = 12500
-    bg.Parent = HRP
-    local bv = Instance.new("BodyVelocity")
-    bv.Name = "FlyVel"
-    bv.MaxForce = Vector3.new(400000, 400000, 400000)
-    bv.Velocity = Vector3.new(0, 0, 0)
-    bv.Parent = HRP
-end
-
-function DisableFly()
-    if HRP then
-        for _, v in pairs({HRP:FindFirstChild("FlyGyro"), HRP:FindFirstChild("FlyVel")}) do
-            if v then v:Destroy() end
-        end
-    end
-end
-
-spawn(function()
-    while task.wait() do
-        if FlyEnabled and HRP and HRP:FindFirstChild("FlyGyro") and HRP:FindFirstChild("FlyVel") then
-            local cam = WS.CurrentCamera
-            HRP.FlyGyro.CFrame = cam.CFrame
-            local dir = Vector3.zero
-            if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - cam.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + cam.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
-            if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0, 1, 0) end
-            HRP.FlyVel.Velocity = dir * 120
-        else
-            task.wait(0.1)
-        end
-    end
-end)
-
-CreateSlider(Tab5, "WalkSpeed", 16, 300, 16, function(v) if Hum then Hum.WalkSpeed = v end end)
-CreateSlider(Tab5, "JumpPower", 50, 500, 50, function(v) if Hum then Hum.JumpPower = v end end)
-
-CreateToggle(Tab5, "NoClip Xuyên Tường", false, function(s)
-    NoClipEnabled = s
-    if s then EnableNoClip() end
-end)
-
-function EnableNoClip()
-    for _, v in pairs(Char:GetDescendants()) do
-        if v:IsA("BasePart") and v.CanCollide then v.CanCollide = false end
-    end
-end
-
-Char.DescendantAdded:Connect(function(c)
-    if NoClipEnabled and c:IsA("BasePart") then
-        task.wait()
-        c.CanCollide = false
-    end
-end)
-
-CreateToggle(Tab5, "Auto V4", false, function(s)
-    spawn(function() while s and task.wait(5) do pcall(function() RS.Remotes.CommF_:InvokeServer("Awakening", "Check") task.wait(1) RS.Remotes.CommF_:InvokeServer("Awakening", "Activate") end) end end)
-end)
-
-CreateToggle(Tab5, "Auto V3", false, function(s)
-    spawn(function() while s and task.wait(3) do pcall(function() RS.Remotes.CommF_:InvokeServer("Tier3", "Activate") end) end end)
-end)
-
-CreateButton(Tab5, "Reset Character", function() LP.Character:BreakJoints() end)
+CreateLabel(T5, "CHARACTER")
+CreateToggle(T5, "🕊️ Fly Hack", false, function(s) FlyEnabled = s if s then EnableFly() else DisableFly() end end)
+CreateSlider(T5, "WalkSpeed", 16, 300, 16, function(v) if Hum then Hum.WalkSpeed = v end end)
+CreateSlider(T5, "JumpPower", 50, 500, 50, function(v) if Hum then Hum.JumpPower = v end end)
+CreateToggle(T5, "🚫 NoClip", false, function(s) NoClipEnabled = s if s then EnableNoClip() end end)
+CreateToggle(T5, "Auto V4", false, function(s) spawn(function() while s and task.wait(5) do pcall(function() RS.Remotes.CommF_:InvokeServer("Awakening","Check") task.wait(1) RS.Remotes.CommF_:InvokeServer("Awakening","Activate") end) end end) end)
+CreateToggle(T5, "Auto V3", false, function(s) spawn(function() while s and task.wait(3) do pcall(function() RS.Remotes.CommF_:InvokeServer("Tier3","Activate") end) end end) end)
+CreateButton(T5, "Reset Character", function() LP.Character:BreakJoints() end)
 
 -- ===== TAB 6: EVENT =====
-local Tab6 = TabFrames[TabNames[6]]
+local T6 = TabFrames[TabNames[6]]
 
-CreateLabel(Tab6, "EVENT AUTO FARM")
-
-CreateToggle(Tab6, "Auto Sea Beast/Event", false, function(s)
-    spawn(function()
-        while s and task.wait(5) do
-            for _, v in pairs(WS:GetChildren()) do
-                if v:FindFirstChild("HumanoidRootPart") and (v.Name == "SeaBeast" or v.Name == "Shark" or v.Name == "Ship" or v.Name == "Galleon") then
-                    TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0))
-                    for i = 1, 10 do Click() task.wait(0.1) end
-                end
-            end
-        end
-    end)
+CreateLabel(T6, "EVENT FARM")
+CreateToggle(T6, "Auto Sea Beast", false, function(s)
+    spawn(function() while s and task.wait(5) do for _, v in pairs(WS:GetChildren()) do if v:FindFirstChild("HumanoidRootPart") and (v.Name=="SeaBeast" or v.Name=="Ship") then TeleportTo(v.HumanoidRootPart.CFrame*CFrame.new(0,10,0)) for i=1,10 do Click() task.wait(0.1) end end end end end)
 end)
-
-CreateToggle(Tab6, "Auto Đảo Núi Lửa", false, function(s)
-    spawn(function()
-        while s and task.wait(3) do
-            TeleportTo(CFrame.new(-3596, 493, 7881))
-            task.wait(1)
-            for _, v in pairs(WS.Enemies:GetChildren()) do
-                if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
-                    if (v.HumanoidRootPart.Position - Vector3.new(-3596, 493, 7881)).Magnitude < 500 then
-                        TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
-                        Click() task.wait(0.2)
-                    end
-                end
-            end
-        end
-    end)
+CreateToggle(T6, "Auto Đảo Núi Lửa", false, function(s)
+    spawn(function() while s and task.wait(3) do TeleportTo(CFrame.new(-3596,493,7881)) task.wait(1) for _,v in pairs(WS.Enemies:GetChildren()) do if v:FindFirstChild("Humanoid") and v.Humanoid.Health>0 and v:FindFirstChild("HumanoidRootPart") then if (v.HumanoidRootPart.Position-Vector3.new(-3596,493,7881)).Magnitude<500 then TeleportTo(v.HumanoidRootPart.CFrame*CFrame.new(0,0,5)) Click() task.wait(0.2) end end end end end)
 end)
-
-CreateToggle(Tab6, "Auto Đảo Cáo", false, function(s)
-    spawn(function()
-        while s and task.wait(3) do
-            TeleportTo(CFrame.new(-7692, 5552, -1318))
-            task.wait(1)
-            for _, v in pairs(WS.Enemies:GetChildren()) do
-                if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
-                    if (v.HumanoidRootPart.Position - Vector3.new(-7692, 5552, -1318)).Magnitude < 500 then
-                        TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
-                        Click() task.wait(0.2)
-                    end
-                end
-            end
-        end
-    end)
+CreateToggle(T6, "Auto Đảo Cáo", false, function(s)
+    spawn(function() while s and task.wait(3) do TeleportTo(CFrame.new(-7692,5552,-1318)) task.wait(1) for _,v in pairs(WS.Enemies:GetChildren()) do if v:FindFirstChild("Humanoid") and v.Humanoid.Health>0 and v:FindFirstChild("HumanoidRootPart") then if (v.HumanoidRootPart.Position-Vector3.new(-7692,5552,-1318)).Magnitude<500 then TeleportTo(v.HumanoidRootPart.CFrame*CFrame.new(0,0,5)) Click() task.wait(0.2) end end end end end)
 end)
 
 -- ===== TAB 7: MISC =====
-local Tab7 = TabFrames[TabNames[7]]
+local T7 = TabFrames[TabNames[7]]
 
-CreateLabel(Tab7, "TIỆN ÍCH")
-
-CreateToggle(Tab7, "Auto Random Trái", false, function(s)
-    spawn(function() while s and task.wait(2.5) do pcall(function() RS.Remotes.CommF_:InvokeServer("Cousin", "Buy") end) end end)
-end)
-
-CreateToggle(Tab7, "Anti AFK", true, function(s)
-    spawn(function() while s and task.wait(300) do VU:CaptureController() VU:ClickButton2(Vector2.new()) end end)
-end)
-
-CreateButton(Tab7, "White Screen (Tiết Kiệm Pin)", function()
-    if CG:FindFirstChild("WhiteScreen") then CG.WhiteScreen:Destroy() end
+CreateLabel(T7, "TIỆN ÍCH")
+CreateToggle(T7, "Auto Random Trái", false, function(s) spawn(function() while s and task.wait(2.5) do pcall(function() RS.Remotes.CommF_:InvokeServer("Cousin","Buy") end) end end) end)
+CreateToggle(T7, "Anti AFK", true, function(s) spawn(function() while s and task.wait(300) do VU:CaptureController() VU:ClickButton2(Vector2.new()) end end) end)
+CreateButton(T7, "White Screen", function()
+    if PlayerGui:FindFirstChild("WhiteScreen") then PlayerGui.WhiteScreen:Destroy() return end
     local ws = Instance.new("ScreenGui") ws.Name = "WhiteScreen"
     local f = Instance.new("Frame") f.Size = UDim2.new(1,0,1,0) f.BackgroundColor3 = Color3.fromRGB(255,255,255) f.Parent = ws
-    pcall(function() ws.Parent = CG end) if not ws.Parent then ws.Parent = LP:WaitForChild("PlayerGui") end
+    ws.Parent = PlayerGui
 end)
-
-CreateButton(Tab7, "Tắt White Screen", function()
-    if CG:FindFirstChild("WhiteScreen") then CG.WhiteScreen:Destroy() end
-end)
-
-CreateButton(Tab7, "Rejoin Server", function()
-    TS:Create(HRP, TweenInfo.new(0.1), {CFrame = CFrame.new(0,99999,0)}):Play() task.wait(1) LP.Character:BreakJoints()
-end)
+CreateButton(T7, "Rejoin", function() TS:Create(HRP, TweenInfo.new(0.1), {CFrame=CFrame.new(0,99999,0)}):Play() task.wait(1) LP.Character:BreakJoints() end)
 
 -- ===== TOGGLE MENU =====
 ToggleBtn.MouseButton1Click:Connect(function()
@@ -982,12 +738,11 @@ local ImageGui = Instance.new("ScreenGui")
 ImageGui.Name = "RedzImageCorner"
 ImageGui.ResetOnSpawn = false
 ImageGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-pcall(function() ImageGui.Parent = CG end)
-if not ImageGui.Parent then ImageGui.Parent = LP:WaitForChild("PlayerGui") end
+ImageGui.Parent = PlayerGui
 
 local ImageFrame = Instance.new("Frame")
-ImageFrame.Size = UDim2.new(0, 180, 0, 180)
-ImageFrame.Position = UDim2.new(1, -190, 0, 10)
+ImageFrame.Size = UDim2.new(0, 150, 0, 150)
+ImageFrame.Position = UDim2.new(1, -160, 0, 10)
 ImageFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 ImageFrame.BorderSizePixel = 0
 ImageFrame.Active = true
@@ -1005,20 +760,21 @@ ImgLabel.ScaleType = Enum.ScaleType.Fit
 ImgLabel.Parent = ImageFrame
 
 local ImgClose = Instance.new("TextButton")
-ImgClose.Text = "✕" ImgClose.TextColor3 = Color3.fromRGB(255,255,255) ImgClose.TextSize = 14
+ImgClose.Text = "✕" ImgClose.TextColor3 = Color3.fromRGB(255,255,255) ImgClose.TextSize = 12
 ImgClose.Font = Enum.Font.GothamBold ImgClose.BackgroundColor3 = Color3.fromRGB(255,40,40)
-ImgClose.Size = UDim2.new(0,22,0,22) ImgClose.Position = UDim2.new(1,-25,0,3) ImgClose.ZIndex = 10 ImgClose.Parent = ImageFrame
-local ImgCloseCorner = Instance.new("UICorner") ImgCloseCorner.CornerRadius = UDim.new(0,11) ImgCloseCorner.Parent = ImgClose
+ImgClose.Size = UDim2.new(0,20,0,20) ImgClose.Position = UDim2.new(1,-23,0,3) ImgClose.ZIndex = 10 ImgClose.Parent = ImageFrame
+local ImgCloseCorner = Instance.new("UICorner") ImgCloseCorner.CornerRadius = UDim.new(0,10) ImgCloseCorner.Parent = ImgClose
 ImgClose.MouseButton1Click:Connect(function() ImageFrame.Visible = false end)
 
--- ===== THÔNG BÁO =====
+-- Cập nhật trạng thái nút ban đầu
+ToggleBtn.Text = "🟢"
+ToggleStroke.Color = Color3.fromRGB(50, 255, 50)
+
+-- Thông báo console
 print("====================================")
-print(" 🔥 REDZ HUB - ULTIMATE LOADED")
-print(" ✅ Kill Aura Toàn Diện")
-print(" ✅ Bypass Anti-Cheat Metatable")
-print(" ✅ Auto Raid Dungeon Master")
-print(" ✅ Auto PvP Combo + Bounty Hunt")
-print(" ✅ Garbage Collector Anti Crash")
-print(" ✅ Nút 🔴 bên trái để mở menu")
-print(" ✅ Ảnh ID: 129898296854108")
+print(" REDZ HUB - BLOX FRUITS LOADED")
+print(" Menu đã hiện giữa màn hình")
+print(" Nút 🟢 bên trái để tắt/bật")
+print(" Ctrl Phải cũng tắt/bật được")
+print(" ID Ảnh: 129898296854108")
 print("====================================")
