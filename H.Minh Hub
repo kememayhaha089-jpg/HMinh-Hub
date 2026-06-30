@@ -1,6 +1,7 @@
 --[[
-    REDZ HUB - BLOX FRUITS ULTIMATE V3
-    FIX HIỆN MENU + NÚT BẬT BÊN TRÁI TO RÕ
+    REDZ HUB - BLOX FRUITS ULTIMATE V6 FINAL
+    GUI ĐẸP + TWEEN 350 SPEED + BYPASS TELE + AUTO FARM + KILL AURA + FRUIT SNIPE
+    Bật chức năng là đánh luôn - Không cần chờ
     Tương thích: Delta Mobile, CodeX, Arceus X
     ID Ảnh: 129898296854108
 --]]
@@ -19,164 +20,246 @@ local RS = g:GetService("ReplicatedStorage")
 local WS = g:GetService("Workspace")
 local CG = g:GetService("CoreGui")
 local RunService = g:GetService("RunService")
+local PlayerGui = LP:WaitForChild("PlayerGui")
+local TweenSpeed = 350
 
--- Biến toàn cục
-local AutoFarmEnabled = false
-local SelectedFarmMob = ""
-local FlyEnabled = false
-local NoClipEnabled = false
-local KillAuraEnabled = false
-local AutoRaidEnabled = false
-local AutoPvPEnabled = false
-local AutoBountyEnabled = false
-local KillAuraRange = 100
-local ComboSequence = {"Z", "X", "C", "V"}
+-- ===== BIẾN TOÀN CỤC =====
+local FarmEnabled, KillAuraEnabled, FruitSnipeEnabled, FruitESPEnabled = false, false, false, false
+local FlyEnabled, NoClipEnabled, AutoRaidEnabled, AutoPvPEnabled, AutoBountyEnabled = false, false, false, false, false
+local AutoQuestEnabled, BringMobEnabled, AutoV4Enabled, AutoV3Enabled, AntiAFKEnabled = true, true, false, false, true
+local SelectedMob, KillAuraRange, ComboSeq = "Bandit", 150, {"Z","X","C","V"}
+local WalkSpeedVal, JumpPowerVal = 16, 50
 
--- Auto reconnect
+-- Danh sách quest
+local Quests = {
+    {Mob="Bandit", Quest="BanditQuest1", Lv=1, NPC=CFrame.new(1059,16,1549)},
+    {Mob="Monkey", Quest="JungleQuest", Lv=1, NPC=CFrame.new(-1613,36,147)},
+    {Mob="Pirate", Quest="BuggyQuest1", Lv=1, NPC=CFrame.new(1212,18,284)},
+    {Mob="Brute", Quest="BuggyQuest2", Lv=1, NPC=CFrame.new(-1189,27,3178)},
+    {Mob="Desert Bandit", Quest="DesertQuest", Lv=1, NPC=CFrame.new(970,17,3712)},
+    {Mob="Soldier", Quest="SoldierQuest", Lv=1, NPC=CFrame.new(-5537,38,-817)},
+    {Mob="Snow Bandit", Quest="SnowQuest", Lv=1, NPC=CFrame.new(-5537,38,-817)},
+}
+
+-- Reconnect
 LP.CharacterAdded:Connect(function(c)
-    Char = c
-    HRP = Char:WaitForChild("HumanoidRootPart")
-    Hum = Char:WaitForChild("Humanoid")
-    task.wait(1)
-    if FlyEnabled then EnableFly() end
-    if NoClipEnabled then EnableNoClip() end
+    Char=c HRP=Char:WaitForChild("HumanoidRootPart") Hum=Char:WaitForChild("Humanoid")
+    task.wait(0.5)
+    if FlyEnabled then FlyOn() end
+    if NoClipEnabled then NoClipOn() end
 end)
 
--- ===== FUNCTIONS =====
-local function TweenTo(pos)
-    local tween = TS:Create(HRP, TweenInfo.new(0.5), {CFrame = pos})
+-- ===== BYPASS ANTI-CHEAT =====
+spawn(function() pcall(function()
+    local mt=getrawmetatable(g) setreadonly(mt,false) local old=mt.__index
+    mt.__index=newcclosure(function(o,p)
+        if tostring(o)=="Humanoid" then
+            if p=="WalkSpeed" then return 16 end
+            if p=="JumpPower" then return 50 end
+        end
+        return old(o,p)
+    end) setreadonly(mt,true)
+end) end)
+
+spawn(function() pcall(function()
+    local old=hookmetamethod(g,"__namecall",newcclosure(function(s,...)
+        local a={...} local m=getnamecallmethod()
+        if m=="InvokeServer" and (string.find(tostring(s),"CommF_") or string.find(tostring(s),"Validator")) then
+            if a[1]=="CheckWalkSpeed" or a[1]=="CheckJumpPower" or a[1]=="TeleportDetect" then return nil end
+        end
+        return old(s,...)
+    end))
+end) end)
+
+-- ===== TWEEN 350 SPEED =====
+local lastTP=tick()
+function TweenTo(pos)
+    if not HRP then return end
+    local dist=(pos.Position-HRP.Position).Magnitude
+    local tween=TS:Create(HRP,TweenInfo.new(dist/TweenSpeed,Enum.EasingStyle.Linear),{CFrame=pos})
     tween:Play()
+    local nc nc=RunService.Stepped:Connect(function()
+        if tween.PlaybackState==Enum.PlaybackState.Playing then
+            for _,p in pairs(Char:GetChildren()) do if p:IsA("BasePart") then p.CanCollide=false end end
+        else nc:Disconnect() end
+    end)
+    tween.Completed:Wait()
 end
 
-local function TeleportTo(pos)
-    if HRP then HRP.CFrame = pos end
+function TeleportTo(pos)
+    if not HRP then return end
+    local now=tick()
+    if now-lastTP<0.5 then TweenTo(pos) return end
+    lastTP=now HRP.CFrame=pos
 end
 
-local function Click()
-    VIM:SendMouseButtonEvent(0, 0, 0, true, g, 0)
-    task.wait(0.05)
-    VIM:SendMouseButtonEvent(0, 0, 0, false, g, 0)
-end
+function Click() VIM:SendMouseButtonEvent(0,0,0,true,g,0) task.wait(0.05) VIM:SendMouseButtonEvent(0,0,0,false,g,0) end
 
-local function GetNearestEnemy(name)
-    local nearest, minDist = nil, math.huge
-    for _, v in pairs(WS.Enemies:GetChildren()) do
-        if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
-            if string.find(string.lower(v.Name), string.lower(name)) then
-                local dist = (HRP.Position - v.HumanoidRootPart.Position).Magnitude
-                if dist < minDist then
-                    minDist = dist
-                    nearest = v
-                end
+function GetNearestEnemy(name)
+    local n,md=nil,math.huge
+    for _,v in pairs(WS.Enemies:GetChildren()) do
+        if v:FindFirstChild("Humanoid") and v.Humanoid.Health>0 and v:FindFirstChild("HumanoidRootPart") then
+            if string.find(string.lower(v.Name),string.lower(name)) then
+                local d=(HRP.Position-v.HumanoidRootPart.Position).Magnitude
+                if d<md then md=d n=v end
             end
         end
     end
-    return nearest
+    return n
 end
 
--- ===== 1. KILL AURA =====
+-- ===== FLY =====
+function FlyOn()
+    if not HRP then return end
+    FlyOff()
+    local bg=Instance.new("BodyGyro",HRP) bg.Name="FlyGyro" bg.MaxTorque=Vector3.new(400000,400000,400000) bg.P=12500
+    local bv=Instance.new("BodyVelocity",HRP) bv.Name="FlyVel" bv.MaxForce=Vector3.new(400000,400000,400000)
+end
+function FlyOff()
+    for _,n in pairs({"FlyGyro","FlyVel"}) do if HRP and HRP:FindFirstChild(n) then HRP[n]:Destroy() end end
+end
+
 spawn(function()
     while task.wait() do
-        if KillAuraEnabled and Char and HRP and Hum and Hum.Health > 0 then
+        if FlyEnabled and HRP and HRP:FindFirstChild("FlyGyro") then
+            local cam=WS.CurrentCamera HRP.FlyGyro.CFrame=cam.CFrame
+            local dir=Vector3.zero
+            if UIS:IsKeyDown(Enum.KeyCode.W) then dir+=cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.S) then dir-=cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.A) then dir-=cam.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.D) then dir+=cam.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.Space) then dir+=Vector3.new(0,1,0) end
+            if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir-=Vector3.new(0,1,0) end
+            HRP.FlyVel.Velocity=dir*120
+        else task.wait(0.1) end
+    end
+end)
+
+-- NoClip
+function NoClipOn() for _,v in pairs(Char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide=false end end end
+Char.DescendantAdded:Connect(function(c) if NoClipEnabled and c:IsA("BasePart") then task.wait() c.CanCollide=false end end)
+
+-- ===== AUTO FARM CORE =====
+spawn(function()
+    while task.wait(0.1) do
+        if FarmEnabled and Char and HRP and Hum and Hum.Health>0 then
             pcall(function()
-                for _, enemy in pairs(WS.Enemies:GetChildren()) do
-                    if enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
-                        local dist = (HRP.Position - enemy.HumanoidRootPart.Position).Magnitude
-                        if dist <= KillAuraRange then
-                            enemy.HumanoidRootPart.CFrame = HRP.CFrame * CFrame.new(0, 0, -5)
-                            enemy.HumanoidRootPart.CanCollide = false
-                            enemy.Humanoid:TakeDamage(10)
-                            pcall(function() RS.Remotes.CommF_:InvokeServer("Attack", enemy.HumanoidRootPart.Position) end)
+                local questTitle=""
+                pcall(function() questTitle=PlayerGui.Main.Quest.Container.QuestTitle.Text end)
+                if AutoQuestEnabled and not string.find(questTitle,SelectedMob) then
+                    for _,q in pairs(Quests) do if q.Mob==SelectedMob then TweenTo(q.NPC) task.wait(0.3) RS.Remotes.CommF_:InvokeServer("StartQuest",q.Quest,q.Lv) break end end
+                else
+                    for _,m in pairs(WS.Enemies:GetChildren()) do
+                        if string.find(string.lower(m.Name),string.lower(SelectedMob)) and m:FindFirstChild("HumanoidRootPart") and m:FindFirstChild("Humanoid") and m.Humanoid.Health>0 then
+                            if BringMobEnabled then
+                                HRP.CFrame=m.HumanoidRootPart.CFrame*CFrame.new(0,15,0)
+                                m.HumanoidRootPart.CFrame=HRP.CFrame*CFrame.new(0,-15,-3)
+                                m.HumanoidRootPart.CanCollide=false
+                                m.Humanoid.WalkSpeed=0
+                            end
+                            local wep=LP.Backpack:FindFirstChild("Combat") or Char:FindFirstChild("Combat")
+                            if wep then Hum:EquipTool(wep) end
+                            pcall(function() RS.Remotes.Validator:FireServer(math.random(1,9999)) end)
+                            if wep then wep:Activate() end
+                            Click()
                         end
                     end
                 end
-                -- Auto click
-                local weapon = Char:FindFirstChildOfClass("Tool")
-                if weapon then weapon:Activate() end
-                VIM:SendMouseButtonEvent(0, 0, 0, true, g, 0)
-                task.wait(0.01)
-                VIM:SendMouseButtonEvent(0, 0, 0, false, g, 0)
             end)
-        else
-            task.wait(0.3)
         end
     end
 end)
 
--- ===== 2. BYPASS ANTICHEAT =====
+-- ===== KILL AURA =====
 spawn(function()
-    pcall(function()
-        local mt = getrawmetatable(g)
-        setreadonly(mt, false)
-        local old = mt.__index
-        mt.__index = newcclosure(function(o, p)
-            if tostring(o) == "Humanoid" and (p == "WalkSpeed" or p == "JumpPower") then
-                if p == "WalkSpeed" then return 16 end
-                if p == "JumpPower" then return 50 end
-            end
-            return old(o, p)
-        end)
-        setreadonly(mt, true)
-    end)
+    while task.wait() do
+        if KillAuraEnabled and Char and HRP and Hum and Hum.Health>0 then
+            pcall(function()
+                for _,e in pairs(WS.Enemies:GetChildren()) do
+                    if e:FindFirstChild("HumanoidRootPart") and e:FindFirstChild("Humanoid") and e.Humanoid.Health>0 then
+                        if (HRP.Position-e.HumanoidRootPart.Position).Magnitude<=KillAuraRange then
+                            e.HumanoidRootPart.CFrame=HRP.CFrame*CFrame.new(0,0,-3)
+                            e.HumanoidRootPart.CanCollide=false
+                            e.Humanoid:TakeDamage(15)
+                            pcall(function() RS.Remotes.CommF_:InvokeServer("Attack",e.HumanoidRootPart.Position) end)
+                        end
+                    end
+                end
+                local wep=Char:FindFirstChildOfClass("Tool")
+                if wep then wep:Activate() end
+                Click()
+            end)
+        else task.wait(0.3) end
+    end
 end)
 
--- ===== 3. AUTO RAID =====
+-- ===== FRUIT ESP & SNIPE =====
+function ScanFruits()
+    for _,obj in pairs(WS:GetChildren()) do
+        if string.find(string.lower(obj.Name),"fruit") and (obj:IsA("Tool") or obj:FindFirstChild("Handle")) then
+            if FruitESPEnabled then
+                if not obj:FindFirstChild("FruitESP") then
+                    local bg=Instance.new("BillboardGui",obj) bg.Name="FruitESP" bg.AlwaysOnTop=true bg.Size=UDim2.new(0,150,0,40)
+                    local tl=Instance.new("TextLabel",bg) tl.Text="🍎 "..obj.Name.." ["..math.floor((HRP.Position-obj:GetPivot().Position).Magnitude).."m]" tl.TextColor3=Color3.fromRGB(255,50,50) tl.TextSize=14 tl.Font=Enum.Font.GothamBold tl.BackgroundTransparency=1 tl.Size=UDim2.new(1,0,1,0)
+                end
+            end
+            if FruitSnipeEnabled and obj:FindFirstChild("Handle") then
+                TweenTo(obj.Handle.CFrame) task.wait(0.5)
+            end
+        end
+    end
+end
+
+spawn(function() while task.wait(3) do if FruitESPEnabled or FruitSnipeEnabled then ScanFruits() end end end)
+
+-- ===== AUTO RAID =====
 spawn(function()
     while task.wait(0.5) do
         if AutoRaidEnabled and Char and HRP then
             pcall(function()
                 if WS:FindFirstChild("RaidIslands") then
-                    HRP.CFrame = CFrame.new(0, 10000, 0)
-                    for _, enemy in pairs(WS.Enemies:GetChildren()) do
-                        if enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
-                            enemy.HumanoidRootPart.CFrame = HRP.CFrame * CFrame.new(0, 0, -5)
-                            enemy.HumanoidRootPart.CanCollide = false
-                            enemy.Humanoid:TakeDamage(10)
+                    HRP.CFrame=CFrame.new(0,10000,0)
+                    for _,e in pairs(WS.Enemies:GetChildren()) do
+                        if e:FindFirstChild("HumanoidRootPart") and e:FindFirstChild("Humanoid") and e.Humanoid.Health>0 then
+                            e.HumanoidRootPart.CFrame=HRP.CFrame*CFrame.new(0,0,-3)
+                            e.HumanoidRootPart.CanCollide=false
+                            e.Humanoid:TakeDamage(10)
                         end
                     end
-                    local count = 0
-                    for _, enemy in pairs(WS.Enemies:GetChildren()) do
-                        if enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then count = count + 1 end
-                    end
-                    if count == 0 then
-                        RS.Remotes.CommF_:InvokeServer("Raids", "NextIsland")
-                    end
+                    local cnt=0
+                    for _,e in pairs(WS.Enemies:GetChildren()) do if e:FindFirstChild("Humanoid") and e.Humanoid.Health>0 then cnt+=1 end end
+                    if cnt==0 then RS.Remotes.CommF_:InvokeServer("Raids","NextIsland") end
                 end
             end)
         end
     end
 end)
 
--- ===== 4. AUTO PVP =====
-local function ExecuteCombo(targetPlayer)
-    if not targetPlayer or targetPlayer == LP then return end
-    if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
-    local targetHRP = targetPlayer.Character.HumanoidRootPart
-    pcall(function() WS.CurrentCamera.CFrame = CFrame.new(WS.CurrentCamera.CFrame.Position, targetHRP.Position) end)
-    HRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 3)
-    for _, key in pairs(ComboSequence) do
-        local kc = Enum.KeyCode[key]
-        if kc then
-            VIM:SendKeyEvent(true, kc, false, g)
-            task.wait(0.1)
-            VIM:SendKeyEvent(false, kc, false, g)
-            task.wait(0.3)
-        end
+-- ===== AUTO PVP =====
+function DoCombo(target)
+    if not target or target==LP then return end
+    local c=target.Character if not c or not c:FindFirstChild("HumanoidRootPart") then return end
+    local thrp=c.HumanoidRootPart
+    pcall(function() WS.CurrentCamera.CFrame=CFrame.new(WS.CurrentCamera.CFrame.Position,thrp.Position) end)
+    TeleportTo(thrp.CFrame*CFrame.new(0,0,3))
+    for _,k in pairs(ComboSeq) do
+        local kc=Enum.KeyCode[k]
+        if kc then VIM:SendKeyEvent(true,kc,false,g) task.wait(0.08) VIM:SendKeyEvent(false,kc,false,g) task.wait(0.2) end
     end
 end
 
 spawn(function()
-    while task.wait(0.5) do
+    while task.wait(0.3) do
         if AutoPvPEnabled and Char and HRP then
             pcall(function()
-                local nearest, minDist = nil, math.huge
-                for _, p in pairs(Players:GetPlayers()) do
-                    if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-                        local d = (HRP.Position - p.Character.HumanoidRootPart.Position).Magnitude
-                        if d < minDist and d < 500 then minDist = d nearest = p end
+                local near,md=nil,math.huge
+                for _,p in pairs(Players:GetPlayers()) do
+                    if p~=LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health>0 then
+                        local d=(HRP.Position-p.Character.HumanoidRootPart.Position).Magnitude
+                        if d<md and d<500 then md=d near=p end
                     end
                 end
-                if nearest then ExecuteCombo(nearest) end
+                if near then DoCombo(near) end
             end)
         end
     end
@@ -186,595 +269,254 @@ spawn(function()
     while task.wait(1) do
         if AutoBountyEnabled and Char and HRP then
             pcall(function()
-                local nearest, minDist = nil, math.huge
-                for _, p in pairs(Players:GetPlayers()) do
-                    if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                        local d = (HRP.Position - p.Character.HumanoidRootPart.Position).Magnitude
-                        if d < minDist then minDist = d nearest = p end
+                local near,md=nil,math.huge
+                for _,p in pairs(Players:GetPlayers()) do
+                    if p~=LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                        local d=(HRP.Position-p.Character.HumanoidRootPart.Position).Magnitude
+                        if d<md then md=d near=p end
                     end
                 end
-                if nearest then
-                    TeleportTo(nearest.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3))
-                    task.wait(0.2)
-                    ExecuteCombo(nearest)
-                end
+                if near then TeleportTo(near.Character.HumanoidRootPart.CFrame*CFrame.new(0,0,3)) task.wait(0.2) DoCombo(near) end
             end)
         end
     end
 end)
 
--- ===== 5. GARBAGE COLLECTOR =====
-spawn(function()
-    while task.wait(60) do
-        pcall(function() gcinfo() collectgarbage("collect") end)
-    end
-end)
+-- ===== AUTO V3/V4 =====
+spawn(function() while task.wait(5) do if AutoV4Enabled then pcall(function() RS.Remotes.CommF_:InvokeServer("Awakening","Check") task.wait(1) RS.Remotes.CommF_:InvokeServer("Awakening","Activate") end) end end end)
+spawn(function() while task.wait(3) do if AutoV3Enabled then pcall(function() RS.Remotes.CommF_:InvokeServer("Tier3","Activate") end) end end end)
 
--- ===== FLY HACK =====
-function EnableFly()
-    if not HRP then return end
-    DisableFly()
-    local bg = Instance.new("BodyGyro")
-    bg.Name = "FlyGyro"
-    bg.MaxTorque = Vector3.new(400000, 400000, 400000)
-    bg.P = 12500
-    bg.Parent = HRP
-    local bv = Instance.new("BodyVelocity")
-    bv.Name = "FlyVel"
-    bv.MaxForce = Vector3.new(400000, 400000, 400000)
-    bv.Velocity = Vector3.new(0, 0, 0)
-    bv.Parent = HRP
+-- ===== ANTI AFK =====
+spawn(function() while task.wait(300) do if AntiAFKEnabled then VU:CaptureController() VU:ClickButton2(Vector2.new()) end end end)
+
+-- ===== GARBAGE COLLECTOR =====
+spawn(function() while task.wait(60) do pcall(function() gcinfo() collectgarbage("collect") end) end end)
+
+-- ===== XÓA GUI CŨ =====
+for _,n in pairs({"RedzToggle","RedzMain","RedzImage"}) do
+    if PlayerGui:FindFirstChild(n) then PlayerGui[n]:Destroy() end
+    if CG:FindFirstChild(n) then CG[n]:Destroy() end
 end
 
-function DisableFly()
-    if HRP then
-        for _, v in pairs({HRP:FindFirstChild("FlyGyro"), HRP:FindFirstChild("FlyVel")}) do
-            if v then v:Destroy() end
-        end
-    end
-end
+-- ===== GUI ĐẸP - NÚT TRÒN BÊN TRÁI =====
+local ToggleGui = Instance.new("ScreenGui") ToggleGui.Name="RedzToggle" ToggleGui.ResetOnSpawn=false ToggleGui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling ToggleGui.Parent=PlayerGui
 
-spawn(function()
-    while task.wait() do
-        if FlyEnabled and HRP and HRP:FindFirstChild("FlyGyro") then
-            local cam = WS.CurrentCamera
-            HRP.FlyGyro.CFrame = cam.CFrame
-            local dir = Vector3.zero
-            if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - cam.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + cam.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
-            if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0, 1, 0) end
-            HRP.FlyVel.Velocity = dir * 120
-        else
-            task.wait(0.1)
-        end
-    end
-end)
+local ToggleBtn = Instance.new("TextButton") ToggleBtn.Size=UDim2.new(0,60,0,60) ToggleBtn.Position=UDim2.new(0,15,0.5,-30)
+ToggleBtn.Text="" ToggleBtn.BackgroundColor3=Color3.fromRGB(25,25,25) ToggleBtn.BorderSizePixel=0 ToggleBtn.Active=true ToggleBtn.Draggable=true ToggleBtn.ZIndex=1000 ToggleBtn.Parent=ToggleGui
 
--- NoClip
-function EnableNoClip()
-    for _, v in pairs(Char:GetDescendants()) do
-        if v:IsA("BasePart") and v.CanCollide then v.CanCollide = false end
-    end
-end
+local TBcorner=Instance.new("UICorner",ToggleBtn) TBcorner.CornerRadius=UDim.new(0,30)
+local TBstroke=Instance.new("UIStroke",ToggleBtn) TBstroke.Thickness=3 TBstroke.Color=Color3.fromRGB(255,60,60)
 
-Char.DescendantAdded:Connect(function(c)
-    if NoClipEnabled and c:IsA("BasePart") then task.wait() c.CanCollide = false end
-end)
+local ToggleIcon=Instance.new("TextLabel",ToggleBtn) ToggleIcon.Size=UDim2.new(1,0,1,0) ToggleIcon.Text="⚡" ToggleIcon.TextSize=28 ToggleIcon.BackgroundTransparency=1 ToggleIcon.TextColor3=Color3.fromRGB(255,255,255)
 
--- ===== TẠO GUI TRỰC TIẾP VÀO PLAYERGUI (ĐẢM BẢO HIỆN) =====
-local PlayerGui = LP:WaitForChild("PlayerGui")
+local ToggleLabel=Instance.new("TextLabel",ToggleGui) ToggleLabel.Size=UDim2.new(0,60,0,18) ToggleLabel.Position=UDim2.new(0,15,0.5,35) ToggleLabel.Text="REDZ HUB" ToggleLabel.TextColor3=Color3.fromRGB(255,255,255) ToggleLabel.TextSize=9 ToggleLabel.Font=Enum.Font.GothamBold ToggleLabel.BackgroundTransparency=1
 
--- Xóa GUI cũ nếu có
-for _, name in pairs({"RedzToggleBtn", "RedzHubMain", "RedzImageCorner"}) do
-    if PlayerGui:FindFirstChild(name) then PlayerGui[name]:Destroy() end
-end
-for _, name in pairs({"RedzToggleBtn", "RedzHubMain", "RedzImageCorner"}) do
-    if CG:FindFirstChild(name) then CG[name]:Destroy() end
-end
+-- ===== MENU CHÍNH ĐẸP =====
+local MainGui=Instance.new("ScreenGui") MainGui.Name="RedzMain" MainGui.ResetOnSpawn=false MainGui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling MainGui.Parent=PlayerGui
 
--- ===== NÚT BẬT MENU BÊN TRÁI =====
-local ToggleButton = Instance.new("ScreenGui")
-ToggleButton.Name = "RedzToggleBtn"
-ToggleButton.ResetOnSpawn = false
-ToggleButton.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ToggleButton.Parent = PlayerGui
+local Main=Instance.new("Frame",MainGui) Main.Size=UDim2.new(0,480,0,360) Main.Position=UDim2.new(0.5,-240,0.5,-180) Main.BackgroundColor3=Color3.fromRGB(15,15,18) Main.BorderSizePixel=0 Main.Active=true Main.Draggable=true Main.Visible=true Main.ZIndex=500
 
-local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Name = "MenuToggle"
-ToggleBtn.Size = UDim2.new(0, 65, 0, 65)
-ToggleBtn.Position = UDim2.new(0, 15, 0.5, -32)
-ToggleBtn.Text = "🔴"
-ToggleBtn.TextSize = 32
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleBtn.BorderSizePixel = 0
-ToggleBtn.Active = true
-ToggleBtn.Draggable = true
-ToggleBtn.ZIndex = 1000
-ToggleBtn.Parent = ToggleButton
+local Mc=Instance.new("UICorner",Main) Mc.CornerRadius=UDim.new(0,12)
+local Ms=Instance.new("UIStroke",Main) Ms.Thickness=2 Ms.Color=Color3.fromRGB(255,50,50)
 
-local ToggleCorner = Instance.new("UICorner")
-ToggleCorner.CornerRadius = UDim.new(0, 32)
-ToggleCorner.Parent = ToggleBtn
+-- Gradient top bar
+local TopBar=Instance.new("Frame",Main) TopBar.Size=UDim2.new(1,0,0,45) TopBar.BackgroundColor3=Color3.fromRGB(255,45,45) TopBar.BorderSizePixel=0
+local Tc=Instance.new("UICorner",TopBar) Tc.CornerRadius=UDim.new(0,12)
+local Tcover=Instance.new("Frame",TopBar) Tcover.Size=UDim2.new(1,0,0.5,0) Tcover.Position=UDim2.new(0,0,0.5,0) Tcover.BackgroundColor3=Color3.fromRGB(255,45,45) Tcover.BorderSizePixel=0
 
-local ToggleStroke = Instance.new("UIStroke")
-ToggleStroke.Thickness = 4
-ToggleStroke.Color = Color3.fromRGB(255, 50, 50)
-ToggleStroke.Parent = ToggleBtn
+local Title=Instance.new("TextLabel",TopBar) Title.Size=UDim2.new(1,-50,1,0) Title.Position=UDim2.new(0,15,0,0) Title.Text="🔥 REDZ HUB - BLOX FRUITS" Title.TextColor3=Color3.fromRGB(255,255,255) Title.TextSize=15 Title.Font=Enum.Font.GothamBold Title.BackgroundTransparency=1 Title.TextXAlignment=Enum.TextXAlignment.Left
 
--- Label dưới nút
-local ToggleLabel = Instance.new("TextLabel")
-ToggleLabel.Size = UDim2.new(0, 65, 0, 20)
-ToggleLabel.Position = UDim2.new(0, 15, 0.5, 38)
-ToggleLabel.Text = "MENU"
-ToggleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleLabel.TextSize = 11
-ToggleLabel.Font = Enum.Font.GothamBold
-ToggleLabel.BackgroundTransparency = 1
-ToggleLabel.Parent = ToggleButton
+local Close=Instance.new("TextButton",TopBar) Close.Size=UDim2.new(0,30,0,30) Close.Position=UDim2.new(1,-37,0,7) Close.Text="✕" Close.TextColor3=Color3.fromRGB(255,255,255) Close.TextSize=16 Close.Font=Enum.Font.GothamBold Close.BackgroundColor3=Color3.fromRGB(180,0,0) Close.BackgroundTransparency=0.4 Close.BorderSizePixel=0
+local Cc=Instance.new("UICorner",Close) Cc.CornerRadius=UDim.new(0,15)
 
--- ===== MENU CHÍNH =====
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "RedzHubMain"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = PlayerGui
+Close.MouseButton1Click:Connect(function() Main.Visible=false ToggleIcon.Text="⚡" TBstroke.Color=Color3.fromRGB(255,60,60) end)
 
-local Main = Instance.new("Frame")
-Main.Name = "MainFrame"
-Main.Size = UDim2.new(0, 500, 0, 350)
-Main.Position = UDim2.new(0.5, -250, 0.5, -175)
-Main.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-Main.BorderSizePixel = 0
-Main.Active = true
-Main.Draggable = true
-Main.Visible = true -- MẶC ĐỊNH HIỆN
-Main.ZIndex = 500
-Main.Parent = ScreenGui
+-- ===== TAB SYSTEM ĐẸP =====
+local TabNames={"⚔️ Farm","💀 Kill","🍎 Fruit","🏰 Raid","⚡ PvP","🕊️ Player","🎪 Event","🔧 Misc"}
+local TabBtns={} local TabFrames={}
 
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 10)
-MainCorner.Parent = Main
+local TabBar=Instance.new("Frame",Main) TabBar.Size=UDim2.new(0,120,1,-45) TabBar.Position=UDim2.new(0,0,0,45) TabBar.BackgroundColor3=Color3.fromRGB(20,20,25) TabBar.BorderSizePixel=0
 
-local MainStroke = Instance.new("UIStroke")
-MainStroke.Thickness = 2
-MainStroke.Color = Color3.fromRGB(255, 50, 50)
-MainStroke.Parent = Main
-
--- Top Bar
-local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, 0, 0, 36)
-TopBar.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-TopBar.BorderSizePixel = 0
-TopBar.Parent = Main
-
-local TopCorner = Instance.new("UICorner")
-TopCorner.CornerRadius = UDim.new(0, 10)
-TopCorner.Parent = TopBar
-
-local TopCover = Instance.new("Frame")
-TopCover.Size = UDim2.new(1, 0, 0.5, 0)
-TopCover.Position = UDim2.new(0, 0, 0.5, 0)
-TopCover.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-TopCover.BorderSizePixel = 0
-TopCover.Parent = TopBar
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -45, 1, 0)
-Title.Position = UDim2.new(0, 12, 0, 0)
-Title.Text = "🔥 REDZ HUB - BLOX FRUITS 🔥"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 14
-Title.Font = Enum.Font.GothamBold
-Title.BackgroundTransparency = 1
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = TopBar
-
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 28, 0, 28)
-CloseBtn.Position = UDim2.new(1, -34, 0, 4)
-CloseBtn.Text = "✕"
-CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.TextSize = 16
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-CloseBtn.BackgroundTransparency = 0.3
-CloseBtn.BorderSizePixel = 0
-CloseBtn.Parent = TopBar
-
-local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 14)
-CloseCorner.Parent = CloseBtn
-
-CloseBtn.MouseButton1Click:Connect(function()
-    Main.Visible = false
-    ToggleBtn.Text = "🔴"
-    ToggleStroke.Color = Color3.fromRGB(255, 50, 50)
-end)
-
--- ===== TAB SYSTEM =====
-local TabNames = {"⚔️Kill Aura", "🏠Farm", "🌍Tele", "🏰Raid", "⚡PvP", "👤Player", "🎪Event", "🔧Misc"}
-local TabButtons = {}
-local TabFrames = {}
-
-local TabBtnFrame = Instance.new("Frame")
-TabBtnFrame.Size = UDim2.new(0, 115, 1, -36)
-TabBtnFrame.Position = UDim2.new(0, 0, 0, 36)
-TabBtnFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-TabBtnFrame.BorderSizePixel = 0
-TabBtnFrame.Parent = Main
-
-for i, name in pairs(TabNames) do
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -8, 0, 30)
-    btn.Position = UDim2.new(0, 4, 0, (i-1)*33 + 4)
-    btn.Text = name
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextSize = 11
-    btn.Font = Enum.Font.GothamSemibold
-    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    btn.BorderSizePixel = 0
-    btn.Parent = TabBtnFrame
-
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 5)
-    btnCorner.Parent = btn
-
-    local frame = Instance.new("ScrollingFrame")
-    frame.Size = UDim2.new(1, -120, 1, -40)
-    frame.Position = UDim2.new(0, 120, 0, 36)
-    frame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-    frame.BorderSizePixel = 0
-    frame.ScrollBarThickness = 4
-    frame.ScrollBarImageColor3 = Color3.fromRGB(255, 50, 50)
-    frame.Visible = (i == 1)
-    frame.Parent = Main
-
-    local UIListLayout = Instance.new("UIListLayout")
-    UIListLayout.Padding = UDim.new(0, 3)
-    UIListLayout.Parent = frame
-
-    TabButtons[name] = btn
-    TabFrames[name] = frame
-
+for i,name in pairs(TabNames) do
+    local btn=Instance.new("TextButton",TabBar) btn.Size=UDim2.new(1,-8,0,32) btn.Position=UDim2.new(0,4,0,(i-1)*36+4) btn.Text=name btn.TextColor3=Color3.fromRGB(220,220,220) btn.TextSize=11 btn.Font=Enum.Font.GothamSemibold btn.BackgroundColor3=Color3.fromRGB(35,35,42) btn.BorderSizePixel=0
+    local bc=Instance.new("UICorner",btn) bc.CornerRadius=UDim.new(0,6)
+    
+    local frame=Instance.new("ScrollingFrame",Main) frame.Size=UDim2.new(1,-125,1,-50) frame.Position=UDim2.new(0,125,0,45) frame.BackgroundColor3=Color3.fromRGB(18,18,23) frame.BorderSizePixel=0 frame.ScrollBarThickness=3 frame.ScrollBarImageColor3=Color3.fromRGB(255,50,50) frame.Visible=(i==1)
+    local pad=Instance.new("UIListLayout",frame) pad.Padding=UDim.new(0,3)
+    
+    TabBtns[name]=btn TabFrames[name]=frame
+    
     btn.MouseButton1Click:Connect(function()
-        for _, f in pairs(TabFrames) do f.Visible = false end
-        frame.Visible = true
-        for _, b in pairs(TabButtons) do b.BackgroundColor3 = Color3.fromRGB(45, 45, 45) end
-        btn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+        for _,f in pairs(TabFrames) do f.Visible=false end
+        frame.Visible=true
+        for _,b in pairs(TabBtns) do b.BackgroundColor3=Color3.fromRGB(35,35,42) end
+        btn.BackgroundColor3=Color3.fromRGB(255,50,50)
     end)
 end
-
-TabButtons[TabNames[1]].BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+TabBtns[TabNames[1]].BackgroundColor3=Color3.fromRGB(255,50,50)
 
 -- ===== HELPER UI =====
-local function CreateLabel(parent, text)
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -8, 0, 22)
-    lbl.Text = "── " .. text .. " ──"
-    lbl.TextColor3 = Color3.fromRGB(255, 100, 100)
-    lbl.TextSize = 12
-    lbl.Font = Enum.Font.GothamBold
-    lbl.BackgroundTransparency = 1
-    lbl.TextXAlignment = Enum.TextXAlignment.Center
-    lbl.Parent = parent
+local function Lbl(parent,text)
+    local l=Instance.new("TextLabel",parent) l.Size=UDim2.new(1,-8,0,22) l.Text="── "..text.." ──" l.TextColor3=Color3.fromRGB(255,80,80) l.TextSize=11 l.Font=Enum.Font.GothamBold l.BackgroundTransparency=1 l.TextXAlignment=Enum.TextXAlignment.Center
 end
 
-local function CreateToggle(parent, text, default, callback)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -8, 0, 28)
-    frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    frame.BorderSizePixel = 0
-    frame.Parent = parent
-
-    local fCorner = Instance.new("UICorner")
-    fCorner.CornerRadius = UDim.new(0, 4)
-    fCorner.Parent = frame
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0, 220, 1, 0)
-    label.Position = UDim2.new(0, 8, 0, 0)
-    label.Text = text
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextSize = 11
-    label.Font = Enum.Font.Gotham
-    label.BackgroundTransparency = 1
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = frame
-
-    local toggle = Instance.new("TextButton")
-    toggle.Size = UDim2.new(0, 40, 0, 20)
-    toggle.Position = UDim2.new(1, -48, 0, 4)
-    toggle.Text = ""
-    toggle.BackgroundColor3 = default and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(70, 70, 70)
-    toggle.BorderSizePixel = 0
-    toggle.AutoButtonColor = false
-    toggle.Parent = frame
-
-    local tCorner = Instance.new("UICorner")
-    tCorner.CornerRadius = UDim.new(0, 10)
-    tCorner.Parent = toggle
-
-    local dot = Instance.new("Frame")
-    dot.Size = UDim2.new(0, 14, 0, 14)
-    dot.Position = default and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)
-    dot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    dot.BorderSizePixel = 0
-    dot.Parent = toggle
-
-    local dotCorner = Instance.new("UICorner")
-    dotCorner.CornerRadius = UDim.new(0, 7)
-    dotCorner.Parent = dot
-
-    local state = default
-
-    toggle.MouseButton1Click:Connect(function()
-        state = not state
-        toggle.BackgroundColor3 = state and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(70, 70, 70)
-        dot.Position = state and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)
-        callback(state)
+local function Toggle(parent,text,def,cb)
+    local f=Instance.new("Frame",parent) f.Size=UDim2.new(1,-8,0,30) f.BackgroundColor3=Color3.fromRGB(30,30,35) f.BorderSizePixel=0
+    Instance.new("UICorner",f).CornerRadius=UDim.new(0,5)
+    local lb=Instance.new("TextLabel",f) lb.Size=UDim2.new(0,220,1,0) lb.Position=UDim2.new(0,8,0,0) lb.Text=text lb.TextColor3=Color3.fromRGB(255,255,255) lb.TextSize=11 lb.Font=Enum.Font.Gotham lb.BackgroundTransparency=1 lb.TextXAlignment=Enum.TextXAlignment.Left
+    local tg=Instance.new("TextButton",f) tg.Size=UDim2.new(0,42,0,22) tg.Position=UDim2.new(1,-50,0,4) tg.Text="" tg.BackgroundColor3=def and Color3.fromRGB(255,50,50) or Color3.fromRGB(60,60,65) tg.BorderSizePixel=0 tg.AutoButtonColor=false
+    Instance.new("UICorner",tg).CornerRadius=UDim.new(0,11)
+    local dot=Instance.new("Frame",tg) dot.Size=UDim2.new(0,16,0,16) dot.Position=def and UDim2.new(1,-18,0.5,-8) or UDim2.new(0,2,0.5,-8) dot.BackgroundColor3=Color3.fromRGB(255,255,255) dot.BorderSizePixel=0
+    Instance.new("UICorner",dot).CornerRadius=UDim.new(0,8)
+    local st=def
+    tg.MouseButton1Click:Connect(function()
+        st=not st tg.BackgroundColor3=st and Color3.fromRGB(255,50,50) or Color3.fromRGB(60,60,65)
+        dot.Position=st and UDim2.new(1,-18,0.5,-8) or UDim2.new(0,2,0.5,-8) cb(st)
     end)
-
-    return {GetState = function() return state end}
+    return {GetState=function() return st end}
 end
 
-local function CreateButton(parent, text, callback)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -8, 0, 28)
-    btn.Text = text
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextSize = 11
-    btn.Font = Enum.Font.GothamSemibold
-    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    btn.BorderSizePixel = 0
-    btn.Parent = parent
-
-    local bCorner = Instance.new("UICorner")
-    bCorner.CornerRadius = UDim.new(0, 4)
-    bCorner.Parent = btn
-
-    btn.MouseButton1Click:Connect(callback)
-    return btn
+local function Btn(parent,text,cb)
+    local b=Instance.new("TextButton",parent) b.Size=UDim2.new(1,-8,0,30) b.Text=text b.TextColor3=Color3.fromRGB(255,255,255) b.TextSize=11 b.Font=Enum.Font.GothamSemibold b.BackgroundColor3=Color3.fromRGB(40,40,48) b.BorderSizePixel=0
+    Instance.new("UICorner",b).CornerRadius=UDim.new(0,5)
+    b.MouseButton1Click:Connect(cb)
 end
 
-local function CreateSlider(parent, text, min, max, default, callback)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -8, 0, 45)
-    frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    frame.BorderSizePixel = 0
-    frame.Parent = parent
-
-    local fCorner = Instance.new("UICorner")
-    fCorner.CornerRadius = UDim.new(0, 4)
-    fCorner.Parent = frame
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -16, 0, 18)
-    label.Position = UDim2.new(0, 8, 0, 2)
-    label.Text = text .. ": " .. default
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextSize = 11
-    label.Font = Enum.Font.Gotham
-    label.BackgroundTransparency = 1
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = frame
-
-    local sliderBg = Instance.new("Frame")
-    sliderBg.Size = UDim2.new(1, -16, 0, 20)
-    sliderBg.Position = UDim2.new(0, 8, 0, 22)
-    sliderBg.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
-    sliderBg.BorderSizePixel = 0
-    sliderBg.Parent = frame
-
-    local sCorner = Instance.new("UICorner")
-    sCorner.CornerRadius = UDim.new(0, 10)
-    sCorner.Parent = sliderBg
-
-    local fill = Instance.new("Frame")
-    fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0)
-    fill.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-    fill.BorderSizePixel = 0
-    fill.Parent = sliderBg
-
-    local fillCorner = Instance.new("UICorner")
-    fillCorner.CornerRadius = UDim.new(0, 10)
-    fillCorner.Parent = fill
-
-    local val = default
-
-    local function updateSlider()
-        local mousePos = UIS:GetMouseLocation()
-        local relX = mousePos.X - sliderBg.AbsolutePosition.X
-        local percent = math.clamp(relX / sliderBg.AbsoluteSize.X, 0, 1)
-        val = math.floor(min + (max - min) * percent)
-        fill.Size = UDim2.new(percent, 0, 1, 0)
-        label.Text = text .. ": " .. val
-    end
-
-    sliderBg.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local con
-            con = RunService.RenderStepped:Connect(updateSlider)
-            UIS.InputEnded:Connect(function(endedInput)
-                if endedInput.UserInputType == Enum.UserInputType.MouseButton1 or endedInput.UserInputType == Enum.UserInputType.Touch then
-                    con:Disconnect()
-                    callback(val)
-                end
+local function Sld(parent,text,min,max,def,cb)
+    local f=Instance.new("Frame",parent) f.Size=UDim2.new(1,-8,0,46) f.BackgroundColor3=Color3.fromRGB(30,30,35) f.BorderSizePixel=0
+    Instance.new("UICorner",f).CornerRadius=UDim.new(0,5)
+    local lb=Instance.new("TextLabel",f) lb.Size=UDim2.new(1,-16,0,18) lb.Position=UDim2.new(0,8,0,2) lb.Text=text..": "..def lb.TextColor3=Color3.fromRGB(255,255,255) lb.TextSize=11 lb.Font=Enum.Font.Gotham lb.BackgroundTransparency=1 lb.TextXAlignment=Enum.TextXAlignment.Left
+    local sb=Instance.new("Frame",f) sb.Size=UDim2.new(1,-16,0,20) sb.Position=UDim2.new(0,8,0,22) sb.BackgroundColor3=Color3.fromRGB(50,50,55) sb.BorderSizePixel=0
+    Instance.new("UICorner",sb).CornerRadius=UDim.new(0,10)
+    local fl=Instance.new("Frame",sb) fl.Size=UDim2.new((def-min)/(max-min),0,1,0) fl.BackgroundColor3=Color3.fromRGB(255,50,50) fl.BorderSizePixel=0
+    Instance.new("UICorner",fl).CornerRadius=UDim.new(0,10)
+    local val=def
+    sb.InputBegan:Connect(function(inp)
+        if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then
+            local con con=RunService.RenderStepped:Connect(function()
+                local mp=UIS:GetMouseLocation() local rx=mp.X-sb.AbsolutePosition.X local pc=math.clamp(rx/sb.AbsoluteSize.X,0,1)
+                val=math.floor(min+(max-min)*pc) fl.Size=UDim2.new(pc,0,1,0) lb.Text=text..": "..val
+            end)
+            UIS.InputEnded:Connect(function(ei)
+                if ei.UserInputType==Enum.UserInputType.MouseButton1 or ei.UserInputType==Enum.UserInputType.Touch then con:Disconnect() cb(val) end
             end)
         end
     end)
-
-    return {GetValue = function() return val end}
 end
 
--- ===== TAB 1: KILL AURA =====
-local T1 = TabFrames[TabNames[1]]
+-- ===== TAB 1: FARM =====
+local T1=TabFrames[TabNames[1]]
+Lbl(T1,"AUTO FARM")
+Toggle(T1,"Bật Auto Farm",false,function(s) FarmEnabled=s end)
+Toggle(T1,"Tự Động Nhận Quest",true,function(s) AutoQuestEnabled=s end)
+Toggle(T1,"Gom Quái (Bring Mob)",true,function(s) BringMobEnabled=s end)
+Lbl(T1,"CHỌN MOB")
+for _,q in pairs(Quests) do Btn(T1,"🎯 "..q.Mob,function() SelectedMob=q.Mob if not FarmEnabled then FarmEnabled=true end end) end
+Btn(T1,"❌ TẮT FARM",function() FarmEnabled=false end)
 
-CreateLabel(T1, "KILL AURA")
-CreateToggle(T1, "⚡ Kill Aura", false, function(s) KillAuraEnabled = s end)
-CreateSlider(T1, "Phạm Vi", 10, 300, 100, function(v) KillAuraRange = v end)
+-- ===== TAB 2: KILL AURA =====
+local T2=TabFrames[TabNames[2]]
+Lbl(T2,"KILL AURA")
+Toggle(T2,"💀 Bật Kill Aura",false,function(s) KillAuraEnabled=s end)
+Sld(T2,"Phạm Vi",10,350,150,function(v) KillAuraRange=v end)
+Btn(T2,"❌ TẮT KILL AURA",function() KillAuraEnabled=false end)
 
-CreateLabel(T1, "AUTO FARM")
-CreateToggle(T1, "Farm Katakuri", false, function(s) AutoFarmEnabled = s SelectedFarmMob = "Katakuri" end)
-CreateToggle(T1, "Farm Bone", false, function(s) AutoFarmEnabled = s SelectedFarmMob = "Bone" end)
-CreateToggle(T1, "Farm Elite Pirate", false, function(s) AutoFarmEnabled = s SelectedFarmMob = "Elite Pirate" end)
-CreateToggle(T1, "Farm Dough King", false, function(s) AutoFarmEnabled = s SelectedFarmMob = "Dough King" end)
-CreateToggle(T1, "Farm Cake Prince", false, function(s) AutoFarmEnabled = s SelectedFarmMob = "Cake Prince" end)
-CreateButton(T1, "❌ TẮT HẾT", function() AutoFarmEnabled = false KillAuraEnabled = false SelectedFarmMob = "" end)
+-- ===== TAB 3: FRUIT =====
+local T3=TabFrames[TabNames[3]]
+Lbl(T3,"TRÁI ÁC QUỶ")
+Toggle(T3,"👁️ Fruit ESP",false,function(s) FruitESPEnabled=s end)
+Toggle(T3,"🎯 Auto Snipe Fruit",false,function(s) FruitSnipeEnabled=s end)
+Btn(T3,"Quét Trái Ngay",function() ScanFruits() end)
 
-spawn(function()
-    while task.wait(0.3) do
-        if AutoFarmEnabled and SelectedFarmMob ~= "" and HRP and Hum and Hum.Health > 0 then
-            local target = GetNearestEnemy(SelectedFarmMob)
-            if target then
-                TeleportTo(target.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
-                Click()
-            end
-        end
-    end
+-- ===== TAB 4: RAID =====
+local T4=TabFrames[TabNames[4]]
+Lbl(T4,"AUTO RAID")
+Toggle(T4,"🏰 Auto Raid",false,function(s) AutoRaidEnabled=s end)
+Btn(T4,"Tele Raid Room",function() TeleportTo(CFrame.new(-5772,-231,-5182)) end)
+Btn(T4,"Mua Chip",function() RS.Remotes.CommF_:InvokeServer("Raids","Check") end)
+Btn(T4,"Bắt Đầu Raid",function() RS.Remotes.CommF_:InvokeServer("Raids","Start") end)
+Btn(T4,"Next Island",function() RS.Remotes.CommF_:InvokeServer("Raids","NextIsland") end)
+
+-- ===== TAB 5: PVP =====
+local T5=TabFrames[TabNames[5]]
+Lbl(T5,"AUTO PVP")
+Toggle(T5,"⚔️ Auto PvP Combo",false,function(s) AutoPvPEnabled=s end)
+Toggle(T5,"💀 Auto Bounty Hunt",false,function(s) AutoBountyEnabled=s end)
+Btn(T5,"Combo Z>X>C>V",function() ComboSeq={"Z","X","C","V"} end)
+Btn(T5,"Combo V>C>X>Z",function() ComboSeq={"V","C","X","Z"} end)
+
+-- ===== TAB 6: PLAYER =====
+local T6=TabFrames[TabNames[6]]
+Lbl(T6,"CHARACTER")
+Toggle(T6,"🕊️ Fly Hack",false,function(s) FlyEnabled=s if s then FlyOn() else FlyOff() end end)
+Sld(T6,"WalkSpeed",16,300,16,function(v) WalkSpeedVal=v if Hum then Hum.WalkSpeed=v end end)
+Sld(T6,"JumpPower",50,500,50,function(v) JumpPowerVal=v if Hum then Hum.JumpPower=v end end)
+Toggle(T6,"🚫 NoClip",false,function(s) NoClipEnabled=s if s then NoClipOn() end end)
+Sld(T6,"Tốc Độ Bay",50,500,120,function(v) end)
+Toggle(T6,"⚡ Auto V4",false,function(s) AutoV4Enabled=s end)
+Toggle(T6,"💠 Auto V3",false,function(s) AutoV3Enabled=s end)
+Btn(T6,"💀 Reset Char",function() LP.Character:BreakJoints() end)
+
+-- ===== TAB 7: EVENT =====
+local T7=TabFrames[TabNames[7]]
+Lbl(T7,"EVENT FARM")
+Toggle(T7,"🐉 Auto Sea Beast",false,function(s)
+    spawn(function() while s and task.wait(5) do for _,v in pairs(WS:GetChildren()) do if v:FindFirstChild("HumanoidRootPart") and (v.Name=="SeaBeast" or v.Name=="Ship") then TeleportTo(v.HumanoidRootPart.CFrame*CFrame.new(0,10,0)) for i=1,15 do Click() task.wait(0.08) end end end end end)
+end)
+Toggle(T7,"🌋 Auto Đảo Núi Lửa",false,function(s)
+    spawn(function() while s and task.wait(2) do TeleportTo(CFrame.new(-3596,493,7881)) task.wait(0.8) for _,v in pairs(WS.Enemies:GetChildren()) do if v:FindFirstChild("Humanoid") and v.Humanoid.Health>0 and v:FindFirstChild("HumanoidRootPart") then if (v.HumanoidRootPart.Position-Vector3.new(-3596,493,7881)).Magnitude<500 then TeleportTo(v.HumanoidRootPart.CFrame*CFrame.new(0,0,5)) Click() task.wait(0.15) end end end end end)
+end)
+Toggle(T7,"🦊 Auto Đảo Cáo",false,function(s)
+    spawn(function() while s and task.wait(2) do TeleportTo(CFrame.new(-7692,5552,-1318)) task.wait(0.8) for _,v in pairs(WS.Enemies:GetChildren()) do if v:FindFirstChild("Humanoid") and v.Humanoid.Health>0 and v:FindFirstChild("HumanoidRootPart") then if (v.HumanoidRootPart.Position-Vector3.new(-7692,5552,-1318)).Magnitude<500 then TeleportTo(v.HumanoidRootPart.CFrame*CFrame.new(0,0,5)) Click() task.wait(0.15) end end end end end)
 end)
 
--- ===== TAB 2: TELEPORT =====
-local T2 = TabFrames[TabNames[2]]
-
-CreateLabel(T2, "SEA 1")
-CreateButton(T2, "Đảo Khởi Đầu", function() TweenTo(CFrame.new(1074, 16, 1426)) end)
-CreateButton(T2, "Đảo Rừng", function() TweenTo(CFrame.new(-1613, 36, 147)) end)
-CreateButton(T2, "Đảo Tuyết", function() TweenTo(CFrame.new(-5537, 38, -817)) end)
-CreateButton(T2, "Đảo Sa Mạc", function() TweenTo(CFrame.new(970, 17, 3712)) end)
-CreateButton(T2, "Đảo Trời Cao", function() TweenTo(CFrame.new(-4876, 328, -4803)) end)
-
-CreateLabel(T2, "SEA 2")
-CreateButton(T2, "Cafe Trung Tâm", function() TweenTo(CFrame.new(-1836, 87, -1394)) end)
-CreateButton(T2, "Đảo Xanh", function() TweenTo(CFrame.new(-2493, 22, -395)) end)
-CreateButton(T2, "Lâu Đài Trên Mây", function() TweenTo(CFrame.new(-5108, 329, -4774)) end)
-
-CreateLabel(T2, "SEA 3")
-CreateButton(T2, "Đảo Rùa", function() TweenTo(CFrame.new(-3287, 399, 7880)) end)
-CreateButton(T2, "Đảo Hydra", function() TweenTo(CFrame.new(-5800, 392, -200)) end)
-CreateButton(T2, "Đảo Núi Lửa", function() TweenTo(CFrame.new(-3596, 493, 7881)) end)
-CreateButton(T2, "Đảo Cáo", function() TweenTo(CFrame.new(-7692, 5552, -1318)) end)
-
--- ===== TAB 3: RAID =====
-local T3 = TabFrames[TabNames[3]]
-
-CreateLabel(T3, "AUTO RAID")
-CreateToggle(T3, "🏰 Auto Raid", false, function(s) AutoRaidEnabled = s end)
-CreateButton(T3, "Tele Raid Room", function() TeleportTo(CFrame.new(-5772, -231, -5182)) end)
-CreateButton(T3, "Mua Chip", function() RS.Remotes.CommF_:InvokeServer("Raids", "Check") end)
-CreateButton(T3, "Bắt Đầu Raid", function() RS.Remotes.CommF_:InvokeServer("Raids", "Start") end)
-CreateButton(T3, "Next Island", function() RS.Remotes.CommF_:InvokeServer("Raids", "NextIsland") end)
-
--- ===== TAB 4: PVP =====
-local T4 = TabFrames[TabNames[4]]
-
-CreateLabel(T4, "AUTO PVP")
-CreateToggle(T4, "⚔️ Auto PvP Combo", false, function(s) AutoPvPEnabled = s end)
-CreateToggle(T4, "💀 Auto Bounty Hunt", false, function(s) AutoBountyEnabled = s end)
-CreateButton(T4, "Combo Z>X>C>V", function() ComboSequence = {"Z","X","C","V"} end)
-CreateButton(T4, "Combo V>C>X>Z", function() ComboSequence = {"V","C","X","Z"} end)
-
--- ===== TAB 5: PLAYER =====
-local T5 = TabFrames[TabNames[5]]
-
-CreateLabel(T5, "CHARACTER")
-CreateToggle(T5, "🕊️ Fly Hack", false, function(s) FlyEnabled = s if s then EnableFly() else DisableFly() end end)
-CreateSlider(T5, "WalkSpeed", 16, 300, 16, function(v) if Hum then Hum.WalkSpeed = v end end)
-CreateSlider(T5, "JumpPower", 50, 500, 50, function(v) if Hum then Hum.JumpPower = v end end)
-CreateToggle(T5, "🚫 NoClip", false, function(s) NoClipEnabled = s if s then EnableNoClip() end end)
-CreateToggle(T5, "Auto V4", false, function(s) spawn(function() while s and task.wait(5) do pcall(function() RS.Remotes.CommF_:InvokeServer("Awakening","Check") task.wait(1) RS.Remotes.CommF_:InvokeServer("Awakening","Activate") end) end end) end)
-CreateToggle(T5, "Auto V3", false, function(s) spawn(function() while s and task.wait(3) do pcall(function() RS.Remotes.CommF_:InvokeServer("Tier3","Activate") end) end end) end)
-CreateButton(T5, "Reset Character", function() LP.Character:BreakJoints() end)
-
--- ===== TAB 6: EVENT =====
-local T6 = TabFrames[TabNames[6]]
-
-CreateLabel(T6, "EVENT FARM")
-CreateToggle(T6, "Auto Sea Beast", false, function(s)
-    spawn(function() while s and task.wait(5) do for _, v in pairs(WS:GetChildren()) do if v:FindFirstChild("HumanoidRootPart") and (v.Name=="SeaBeast" or v.Name=="Ship") then TeleportTo(v.HumanoidRootPart.CFrame*CFrame.new(0,10,0)) for i=1,10 do Click() task.wait(0.1) end end end end end)
-end)
-CreateToggle(T6, "Auto Đảo Núi Lửa", false, function(s)
-    spawn(function() while s and task.wait(3) do TeleportTo(CFrame.new(-3596,493,7881)) task.wait(1) for _,v in pairs(WS.Enemies:GetChildren()) do if v:FindFirstChild("Humanoid") and v.Humanoid.Health>0 and v:FindFirstChild("HumanoidRootPart") then if (v.HumanoidRootPart.Position-Vector3.new(-3596,493,7881)).Magnitude<500 then TeleportTo(v.HumanoidRootPart.CFrame*CFrame.new(0,0,5)) Click() task.wait(0.2) end end end end end)
-end)
-CreateToggle(T6, "Auto Đảo Cáo", false, function(s)
-    spawn(function() while s and task.wait(3) do TeleportTo(CFrame.new(-7692,5552,-1318)) task.wait(1) for _,v in pairs(WS.Enemies:GetChildren()) do if v:FindFirstChild("Humanoid") and v.Humanoid.Health>0 and v:FindFirstChild("HumanoidRootPart") then if (v.HumanoidRootPart.Position-Vector3.new(-7692,5552,-1318)).Magnitude<500 then TeleportTo(v.HumanoidRootPart.CFrame*CFrame.new(0,0,5)) Click() task.wait(0.2) end end end end end)
-end)
-
--- ===== TAB 7: MISC =====
-local T7 = TabFrames[TabNames[7]]
-
-CreateLabel(T7, "TIỆN ÍCH")
-CreateToggle(T7, "Auto Random Trái", false, function(s) spawn(function() while s and task.wait(2.5) do pcall(function() RS.Remotes.CommF_:InvokeServer("Cousin","Buy") end) end end) end)
-CreateToggle(T7, "Anti AFK", true, function(s) spawn(function() while s and task.wait(300) do VU:CaptureController() VU:ClickButton2(Vector2.new()) end end) end)
-CreateButton(T7, "White Screen", function()
+-- ===== TAB 8: MISC =====
+local T8=TabFrames[TabNames[8]]
+Lbl(T8,"TIỆN ÍCH")
+Toggle(T8,"🎲 Auto Random Trái",false,function(s) spawn(function() while s and task.wait(2.5) do pcall(function() RS.Remotes.CommF_:InvokeServer("Cousin","Buy") end) end end) end)
+Toggle(T8,"🛡️ Anti AFK",true,function(s) AntiAFKEnabled=s end)
+Sld(T8,"Tween Speed",100,500,350,function(v) TweenSpeed=v end)
+Btn(T8,"⬜ White Screen",function()
     if PlayerGui:FindFirstChild("WhiteScreen") then PlayerGui.WhiteScreen:Destroy() return end
-    local ws = Instance.new("ScreenGui") ws.Name = "WhiteScreen"
-    local f = Instance.new("Frame") f.Size = UDim2.new(1,0,1,0) f.BackgroundColor3 = Color3.fromRGB(255,255,255) f.Parent = ws
-    ws.Parent = PlayerGui
+    local ws=Instance.new("ScreenGui",PlayerGui) ws.Name="WhiteScreen"
+    Instance.new("Frame",ws).Size=UDim2.new(1,0,1,0) ws.Frame.BackgroundColor3=Color3.fromRGB(255,255,255)
 end)
-CreateButton(T7, "Rejoin", function() TS:Create(HRP, TweenInfo.new(0.1), {CFrame=CFrame.new(0,99999,0)}):Play() task.wait(1) LP.Character:BreakJoints() end)
+Btn(T8,"🔄 Rejoin",function() TS:Create(HRP,TweenInfo.new(0.1),{CFrame=CFrame.new(0,99999,0)}):Play() task.wait(1) LP.Character:BreakJoints() end)
+Btn(T8,"📋 Copy Link Script",function() setclipboard("https://raw.githubusercontent.com/") end)
 
 -- ===== TOGGLE MENU =====
 ToggleBtn.MouseButton1Click:Connect(function()
-    Main.Visible = not Main.Visible
-    ToggleBtn.Text = Main.Visible and "🟢" or "🔴"
-    ToggleStroke.Color = Main.Visible and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+    Main.Visible=not Main.Visible
+    ToggleIcon.Text=Main.Visible and "🟢" or "⚡"
+    TBstroke.Color=Main.Visible and Color3.fromRGB(50,255,50) or Color3.fromRGB(255,60,60)
 end)
 
-UIS.InputBegan:Connect(function(input, gp)
+UIS.InputBegan:Connect(function(inp,gp)
     if gp then return end
-    if input.KeyCode == Enum.KeyCode.RightControl then
-        Main.Visible = not Main.Visible
-        ToggleBtn.Text = Main.Visible and "🟢" or "🔴"
-        ToggleStroke.Color = Main.Visible and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+    if inp.KeyCode==Enum.KeyCode.RightControl then
+        Main.Visible=not Main.Visible
+        ToggleIcon.Text=Main.Visible and "🟢" or "⚡"
+        TBstroke.Color=Main.Visible and Color3.fromRGB(50,255,50) or Color3.fromRGB(255,60,60)
     end
 end)
 
 -- ===== ẢNH GÓC PHẢI =====
-local ImageGui = Instance.new("ScreenGui")
-ImageGui.Name = "RedzImageCorner"
-ImageGui.ResetOnSpawn = false
-ImageGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ImageGui.Parent = PlayerGui
+local ImgGui=Instance.new("ScreenGui",PlayerGui) ImgGui.Name="RedzImage" ImgGui.ResetOnSpawn=false ImgGui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+local ImgFrame=Instance.new("Frame",ImgGui) ImgFrame.Size=UDim2.new(0,150,0,150) ImgFrame.Position=UDim2.new(1,-160,0,10) ImgFrame.BackgroundColor3=Color3.fromRGB(18,18,18) ImgFrame.BorderSizePixel=0 ImgFrame.Active=true ImgFrame.Draggable=true
+Instance.new("UICorner",ImgFrame).CornerRadius=UDim.new(0,8)
+Instance.new("UIStroke",ImgFrame).Thickness=2 ImgFrame.UIStroke.Color=Color3.fromRGB(255,50,50)
+local Img=Instance.new("ImageLabel",ImgFrame) Img.Image="rbxassetid://129898296854108" Img.BackgroundTransparency=1 Img.Size=UDim2.new(1,-8,1,-8) Img.Position=UDim2.new(0,4,0,4) Img.ScaleType=Enum.ScaleType.Fit
+local ImgX=Instance.new("TextButton",ImgFrame) ImgX.Text="✕" ImgX.TextColor3=Color3.fromRGB(255,255,255) ImgX.TextSize=12 ImgX.Font=Enum.Font.GothamBold ImgX.BackgroundColor3=Color3.fromRGB(255,40,40) ImgX.Size=UDim2.new(0,20,0,20) ImgX.Position=UDim2.new(1,-23,0,3) ImgX.ZIndex=10
+Instance.new("UICorner",ImgX).CornerRadius=UDim.new(0,10)
+ImgX.MouseButton1Click:Connect(function() ImgFrame.Visible=false end)
 
-local ImageFrame = Instance.new("Frame")
-ImageFrame.Size = UDim2.new(0, 150, 0, 150)
-ImageFrame.Position = UDim2.new(1, -160, 0, 10)
-ImageFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-ImageFrame.BorderSizePixel = 0
-ImageFrame.Active = true
-ImageFrame.Draggable = true
-ImageFrame.Parent = ImageGui
-
-local ImgCorner = Instance.new("UICorner") ImgCorner.CornerRadius = UDim.new(0,8) ImgCorner.Parent = ImageFrame
-local ImgStroke = Instance.new("UIStroke") ImgStroke.Thickness = 2 ImgStroke.Color = Color3.fromRGB(255,50,50) ImgStroke.Parent = ImageFrame
-local ImgLabel = Instance.new("ImageLabel")
-ImgLabel.Image = "rbxassetid://129898296854108"
-ImgLabel.BackgroundTransparency = 1
-ImgLabel.Size = UDim2.new(1,-8,1,-8)
-ImgLabel.Position = UDim2.new(0,4,0,4)
-ImgLabel.ScaleType = Enum.ScaleType.Fit
-ImgLabel.Parent = ImageFrame
-
-local ImgClose = Instance.new("TextButton")
-ImgClose.Text = "✕" ImgClose.TextColor3 = Color3.fromRGB(255,255,255) ImgClose.TextSize = 12
-ImgClose.Font = Enum.Font.GothamBold ImgClose.BackgroundColor3 = Color3.fromRGB(255,40,40)
-ImgClose.Size = UDim2.new(0,20,0,20) ImgClose.Position = UDim2.new(1,-23,0,3) ImgClose.ZIndex = 10 ImgClose.Parent = ImageFrame
-local ImgCloseCorner = Instance.new("UICorner") ImgCloseCorner.CornerRadius = UDim.new(0,10) ImgCloseCorner.Parent = ImgClose
-ImgClose.MouseButton1Click:Connect(function() ImageFrame.Visible = false end)
-
--- Cập nhật trạng thái nút ban đầu
-ToggleBtn.Text = "🟢"
-ToggleStroke.Color = Color3.fromRGB(50, 255, 50)
-
--- Thông báo console
+-- ===== THÔNG BÁO =====
 print("====================================")
-print(" REDZ HUB - BLOX FRUITS LOADED")
-print(" Menu đã hiện giữa màn hình")
-print(" Nút 🟢 bên trái để tắt/bật")
-print(" Ctrl Phải cũng tắt/bật được")
-print(" ID Ảnh: 129898296854108")
+print(" 🔥 REDZ HUB V6 - GUI ĐẸP LOADED")
+print(" ✅ Auto Farm + Kill Aura + Fruit")
+print(" ✅ Tween 350 Speed + Bypass Tele")
+print(" ✅ Auto Raid + PvP + Event")
+print(" ✅ Bật nút là đánh được luôn")
+print(" ✅ Nút ⚡ bên trái để mở menu")
+print(" ✅ Ảnh ID góc phải màn hình")
 print("====================================")
