@@ -787,4 +787,238 @@ end)
 CreateLabel(Tab4, "COMBO SEQUENCE")
 
 CreateButton(Tab4, "Combo: Z > X > C > V", function()
-    ComboSequence = {"Z", "X", "
+    ComboSequence = {"Z", "X", "C", "V"}
+end)
+
+CreateButton(Tab4, "Combo: V > C > X > Z", function()
+    ComboSequence = {"V", "C", "X", "Z"}
+end)
+
+CreateButton(Tab4, "Combo: X > Z > V > C", function()
+    ComboSequence = {"X", "Z", "V", "C"}
+end)
+
+-- ===== TAB 5: PLAYER =====
+local Tab5 = TabFrames[TabNames[5]]
+
+CreateLabel(Tab5, "CHARACTER HACKS")
+
+CreateToggle(Tab5, "🕊️ Fly Hack (WASD Space Shift)", false, function(s)
+    FlyEnabled = s
+    if s then EnableFly() else DisableFly() end
+end)
+
+function EnableFly()
+    if not HRP then return end
+    DisableFly()
+    local bg = Instance.new("BodyGyro")
+    bg.Name = "FlyGyro"
+    bg.MaxTorque = Vector3.new(400000, 400000, 400000)
+    bg.P = 12500
+    bg.Parent = HRP
+    local bv = Instance.new("BodyVelocity")
+    bv.Name = "FlyVel"
+    bv.MaxForce = Vector3.new(400000, 400000, 400000)
+    bv.Velocity = Vector3.new(0, 0, 0)
+    bv.Parent = HRP
+end
+
+function DisableFly()
+    if HRP then
+        for _, v in pairs({HRP:FindFirstChild("FlyGyro"), HRP:FindFirstChild("FlyVel")}) do
+            if v then v:Destroy() end
+        end
+    end
+end
+
+spawn(function()
+    while task.wait() do
+        if FlyEnabled and HRP and HRP:FindFirstChild("FlyGyro") and HRP:FindFirstChild("FlyVel") then
+            local cam = WS.CurrentCamera
+            HRP.FlyGyro.CFrame = cam.CFrame
+            local dir = Vector3.zero
+            if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - cam.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + cam.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
+            if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0, 1, 0) end
+            HRP.FlyVel.Velocity = dir * 120
+        else
+            task.wait(0.1)
+        end
+    end
+end)
+
+CreateSlider(Tab5, "WalkSpeed", 16, 300, 16, function(v) if Hum then Hum.WalkSpeed = v end end)
+CreateSlider(Tab5, "JumpPower", 50, 500, 50, function(v) if Hum then Hum.JumpPower = v end end)
+
+CreateToggle(Tab5, "NoClip Xuyên Tường", false, function(s)
+    NoClipEnabled = s
+    if s then EnableNoClip() end
+end)
+
+function EnableNoClip()
+    for _, v in pairs(Char:GetDescendants()) do
+        if v:IsA("BasePart") and v.CanCollide then v.CanCollide = false end
+    end
+end
+
+Char.DescendantAdded:Connect(function(c)
+    if NoClipEnabled and c:IsA("BasePart") then
+        task.wait()
+        c.CanCollide = false
+    end
+end)
+
+CreateToggle(Tab5, "Auto V4", false, function(s)
+    spawn(function() while s and task.wait(5) do pcall(function() RS.Remotes.CommF_:InvokeServer("Awakening", "Check") task.wait(1) RS.Remotes.CommF_:InvokeServer("Awakening", "Activate") end) end end)
+end)
+
+CreateToggle(Tab5, "Auto V3", false, function(s)
+    spawn(function() while s and task.wait(3) do pcall(function() RS.Remotes.CommF_:InvokeServer("Tier3", "Activate") end) end end)
+end)
+
+CreateButton(Tab5, "Reset Character", function() LP.Character:BreakJoints() end)
+
+-- ===== TAB 6: EVENT =====
+local Tab6 = TabFrames[TabNames[6]]
+
+CreateLabel(Tab6, "EVENT AUTO FARM")
+
+CreateToggle(Tab6, "Auto Sea Beast/Event", false, function(s)
+    spawn(function()
+        while s and task.wait(5) do
+            for _, v in pairs(WS:GetChildren()) do
+                if v:FindFirstChild("HumanoidRootPart") and (v.Name == "SeaBeast" or v.Name == "Shark" or v.Name == "Ship" or v.Name == "Galleon") then
+                    TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0))
+                    for i = 1, 10 do Click() task.wait(0.1) end
+                end
+            end
+        end
+    end)
+end)
+
+CreateToggle(Tab6, "Auto Đảo Núi Lửa", false, function(s)
+    spawn(function()
+        while s and task.wait(3) do
+            TeleportTo(CFrame.new(-3596, 493, 7881))
+            task.wait(1)
+            for _, v in pairs(WS.Enemies:GetChildren()) do
+                if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
+                    if (v.HumanoidRootPart.Position - Vector3.new(-3596, 493, 7881)).Magnitude < 500 then
+                        TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
+                        Click() task.wait(0.2)
+                    end
+                end
+            end
+        end
+    end)
+end)
+
+CreateToggle(Tab6, "Auto Đảo Cáo", false, function(s)
+    spawn(function()
+        while s and task.wait(3) do
+            TeleportTo(CFrame.new(-7692, 5552, -1318))
+            task.wait(1)
+            for _, v in pairs(WS.Enemies:GetChildren()) do
+                if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
+                    if (v.HumanoidRootPart.Position - Vector3.new(-7692, 5552, -1318)).Magnitude < 500 then
+                        TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
+                        Click() task.wait(0.2)
+                    end
+                end
+            end
+        end
+    end)
+end)
+
+-- ===== TAB 7: MISC =====
+local Tab7 = TabFrames[TabNames[7]]
+
+CreateLabel(Tab7, "TIỆN ÍCH")
+
+CreateToggle(Tab7, "Auto Random Trái", false, function(s)
+    spawn(function() while s and task.wait(2.5) do pcall(function() RS.Remotes.CommF_:InvokeServer("Cousin", "Buy") end) end end)
+end)
+
+CreateToggle(Tab7, "Anti AFK", true, function(s)
+    spawn(function() while s and task.wait(300) do VU:CaptureController() VU:ClickButton2(Vector2.new()) end end)
+end)
+
+CreateButton(Tab7, "White Screen (Tiết Kiệm Pin)", function()
+    if CG:FindFirstChild("WhiteScreen") then CG.WhiteScreen:Destroy() end
+    local ws = Instance.new("ScreenGui") ws.Name = "WhiteScreen"
+    local f = Instance.new("Frame") f.Size = UDim2.new(1,0,1,0) f.BackgroundColor3 = Color3.fromRGB(255,255,255) f.Parent = ws
+    pcall(function() ws.Parent = CG end) if not ws.Parent then ws.Parent = LP:WaitForChild("PlayerGui") end
+end)
+
+CreateButton(Tab7, "Tắt White Screen", function()
+    if CG:FindFirstChild("WhiteScreen") then CG.WhiteScreen:Destroy() end
+end)
+
+CreateButton(Tab7, "Rejoin Server", function()
+    TS:Create(HRP, TweenInfo.new(0.1), {CFrame = CFrame.new(0,99999,0)}):Play() task.wait(1) LP.Character:BreakJoints()
+end)
+
+-- ===== TOGGLE MENU =====
+ToggleBtn.MouseButton1Click:Connect(function()
+    Main.Visible = not Main.Visible
+    ToggleBtn.Text = Main.Visible and "🟢" or "🔴"
+    ToggleStroke.Color = Main.Visible and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+end)
+
+UIS.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.RightControl then
+        Main.Visible = not Main.Visible
+        ToggleBtn.Text = Main.Visible and "🟢" or "🔴"
+        ToggleStroke.Color = Main.Visible and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(255, 50, 50)
+    end
+end)
+
+-- ===== ẢNH GÓC PHẢI =====
+local ImageGui = Instance.new("ScreenGui")
+ImageGui.Name = "RedzImageCorner"
+ImageGui.ResetOnSpawn = false
+ImageGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+pcall(function() ImageGui.Parent = CG end)
+if not ImageGui.Parent then ImageGui.Parent = LP:WaitForChild("PlayerGui") end
+
+local ImageFrame = Instance.new("Frame")
+ImageFrame.Size = UDim2.new(0, 180, 0, 180)
+ImageFrame.Position = UDim2.new(1, -190, 0, 10)
+ImageFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+ImageFrame.BorderSizePixel = 0
+ImageFrame.Active = true
+ImageFrame.Draggable = true
+ImageFrame.Parent = ImageGui
+
+local ImgCorner = Instance.new("UICorner") ImgCorner.CornerRadius = UDim.new(0,8) ImgCorner.Parent = ImageFrame
+local ImgStroke = Instance.new("UIStroke") ImgStroke.Thickness = 2 ImgStroke.Color = Color3.fromRGB(255,50,50) ImgStroke.Parent = ImageFrame
+local ImgLabel = Instance.new("ImageLabel")
+ImgLabel.Image = "rbxassetid://129898296854108"
+ImgLabel.BackgroundTransparency = 1
+ImgLabel.Size = UDim2.new(1,-8,1,-8)
+ImgLabel.Position = UDim2.new(0,4,0,4)
+ImgLabel.ScaleType = Enum.ScaleType.Fit
+ImgLabel.Parent = ImageFrame
+
+local ImgClose = Instance.new("TextButton")
+ImgClose.Text = "✕" ImgClose.TextColor3 = Color3.fromRGB(255,255,255) ImgClose.TextSize = 14
+ImgClose.Font = Enum.Font.GothamBold ImgClose.BackgroundColor3 = Color3.fromRGB(255,40,40)
+ImgClose.Size = UDim2.new(0,22,0,22) ImgClose.Position = UDim2.new(1,-25,0,3) ImgClose.ZIndex = 10 ImgClose.Parent = ImageFrame
+local ImgCloseCorner = Instance.new("UICorner") ImgCloseCorner.CornerRadius = UDim.new(0,11) ImgCloseCorner.Parent = ImgClose
+ImgClose.MouseButton1Click:Connect(function() ImageFrame.Visible = false end)
+
+-- ===== THÔNG BÁO =====
+print("====================================")
+print(" 🔥 REDZ HUB - ULTIMATE LOADED")
+print(" ✅ Kill Aura Toàn Diện")
+print(" ✅ Bypass Anti-Cheat Metatable")
+print(" ✅ Auto Raid Dungeon Master")
+print(" ✅ Auto PvP Combo + Bounty Hunt")
+print(" ✅ Garbage Collector Anti Crash")
+print(" ✅ Nút 🔴 bên trái để mở menu")
+print(" ✅ Ảnh ID: 129898296854108")
+print("====================================")
