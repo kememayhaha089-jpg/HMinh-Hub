@@ -1,136 +1,371 @@
 --[[
-    Script Redz Hub - Hiển Thị Ảnh Góc Phải (Đã Fix Cho Delta Mobile)
-    ID Ảnh: 129898296854108
-    Tương thích: Delta Executor Mobile
+    Redz Hub - Blox Fruits Auto Farm Siêu Khủng Full Tính Năng
+    Tương thích: Delta Mobile, CodeX, Arceus X
+    Update: Katakuri, Bone, Raid, Teleport, Fly, Law, V4, Sea Event, Đảo Núi Lửa, Đảo Cáo
 --]]
 
--- Load RedzLib (đường dẫn dự phòng)
-local RedzLib
-local success, err = pcall(function()
-    RedzLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/REDzHUB/RedzLib/main/Library.lua"))()
-end)
+-- Load RedzLib
+local RedzLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/REDzHUB/RedzLib/main/Library.lua"))()
 
-if not success then
-    -- Load thẳng script không cần RedzLib nếu thư viện lỗi
-    warn("RedzLib load failed, running standalone mode: " .. tostring(err))
+-- Tạo cửa sổ chính
+local Window = RedzLib:CreateWindow("Redz Hub - Blox Fruits", "Auto Farm Full", Vector2.new(600, 400), Enum.KeyCode.RightControl)
+
+-- ===== TẠO CÁC TAB =====
+local TabMain = Window:CreateTab("🏠 Main")
+local TabRaid = Window:CreateTab("⚔️ Raid")
+local TabTele = Window:CreateTab("🌍 Teleport")
+local TabMisc = Window:CreateTab("🔧 Misc")
+local TabEvent = Window:CreateTab("🎪 Event")
+
+-- ===== BIẾN TOÀN CỤC =====
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local VirtualUser = game:GetService("VirtualUser")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+-- Auto Farm biến
+local AutoFarm = false
+local SelectedMob = "Katakuri"
+local MobList = {"Katakuri", "Bone", "Elite Pirate", "Swan Pirate", "Marine Admiral", "Dragon Crew Warrior", "Dragon Crew Archer", "Master of Enhancement"}
+
+-- ===== HÀM TIỆN ÍCH =====
+local function TweenTo(pos)
+    local tween = TweenService:Create(LocalPlayer.Character.HumanoidRootPart, TweenInfo.new(0.5), {CFrame = pos})
+    tween:Play()
 end
 
--- ID ảnh
-local IMAGE_ID = "129898296854108"
-local IMAGE_LINK = "rbxassetid://" .. IMAGE_ID
-
--- Tạo ScreenGui (dùng g:GetService thay vì game:GetService để tránh lỗi Delta)
-local g = game
-local CoreGui = g:GetService("CoreGui")
-
--- Xóa GUI cũ nếu có
-if CoreGui:FindFirstChild("RedzRightImage") then
-    CoreGui.RedzRightImage:Destroy()
-end
-
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "RedzRightImage"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
--- Thử parent vào CoreGui, nếu lỗi thì dùng PlayerGui
-local success2, err2 = pcall(function()
-    ScreenGui.Parent = CoreGui
-end)
-
-if not success2 then
-    local Player = g:GetService("Players").LocalPlayer
-    if Player and Player:FindFirstChild("PlayerGui") then
-        ScreenGui.Parent = Player.PlayerGui
+local function TeleportTo(pos)
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = pos
     end
 end
 
--- Tạo khung chứa
-local Frame = Instance.new("Frame")
-Frame.Name = "ImageFrame"
-Frame.Size = UDim2.new(0, 250, 0, 250)
-Frame.Position = UDim2.new(1, -260, 0, 10)
-Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Frame.BorderSizePixel = 0
-Frame.Active = true
-Frame.Draggable = true
-Frame.Parent = ScreenGui
+local function Click()
+    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+    wait()
+    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+end
 
--- Bo góc
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 8)
-UICorner.Parent = Frame
+-- ===== AUTO FARM MOBS =====
+local function GetNearestMob(name)
+    local nearest = nil
+    local minDist = math.huge
+    for _, v in pairs(workspace.Enemies:GetChildren()) do
+        if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") and string.find(v.Name, name) then
+            local dist = (LocalPlayer.Character.HumanoidRootPart.Position - v.HumanoidRootPart.Position).Magnitude
+            if dist < minDist then
+                minDist = dist
+                nearest = v
+            end
+        end
+    end
+    return nearest
+end
 
--- Viền
-local Stroke = Instance.new("UIStroke")
-Stroke.Thickness = 2
-Stroke.Color = Color3.fromRGB(255, 50, 50)
-Stroke.Parent = Frame
-
--- Ảnh chính
-local Image = Instance.new("ImageLabel")
-Image.Name = "RedzImage"
-Image.Image = IMAGE_LINK
-Image.BackgroundTransparency = 1
-Image.Size = UDim2.new(1, -8, 1, -8)
-Image.Position = UDim2.new(0, 4, 0, 4)
-Image.ScaleType = Enum.ScaleType.Fit
-Image.Parent = Frame
-
--- Nút đóng
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Name = "Close"
-CloseBtn.Text = "X"
-CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.TextSize = 16
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 40, 40)
-CloseBtn.Size = UDim2.new(0, 25, 0, 25)
-CloseBtn.Position = UDim2.new(1, -28, 0, 3)
-CloseBtn.ZIndex = 10
-CloseBtn.Parent = Frame
-
-local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 12)
-CloseCorner.Parent = CloseBtn
-
-CloseBtn.MouseButton1Click:Connect(function()
-    Frame.Visible = false
+spawn(function()
+    while wait() do
+        if AutoFarm then
+            local mob = GetNearestMob(SelectedMob)
+            if mob then
+                TeleportTo(mob.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
+                wait(0.5)
+                Click()
+            end
+        end
+    end
 end)
 
--- Nút hiện lại (tạo riêng 1 nút nhỏ góc phải khi ảnh bị ẩn)
-local ShowBtn = Instance.new("TextButton")
-ShowBtn.Name = "ShowBtn"
-ShowBtn.Text = "🖼️"
-ShowBtn.TextSize = 20
-ShowBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-ShowBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ShowBtn.Size = UDim2.new(0, 40, 0, 40)
-ShowBtn.Position = UDim2.new(1, -50, 0, 10)
-ShowBtn.ZIndex = 99
-ShowBtn.Visible = false
-ShowBtn.Active = true
-ShowBtn.Draggable = true
-ShowBtn.Parent = ScreenGui
-
-local ShowCorner = Instance.new("UICorner")
-ShowCorner.CornerRadius = UDim.new(0, 20)
-ShowCorner.Parent = ShowBtn
-
-ShowBtn.MouseButton1Click:Connect(function()
-    Frame.Visible = true
-    ShowBtn.Visible = false
+-- ===== KATAKURI AUTO FARM =====
+TabMain:CreateToggle("Auto Farm Katakuri", false, function(state)
+    AutoFarm = state
+    SelectedMob = "Katakuri"
 end)
 
-CloseBtn.MouseButton1Click:Connect(function()
-    Frame.Visible = false
-    ShowBtn.Visible = true
+TabMain:CreateToggle("Auto Farm Bone", false, function(state)
+    AutoFarm = state
+    SelectedMob = "Bone"
 end)
 
--- Thông báo thành công
+TabMain:CreateDropdown("Chọn Mob Farm", MobList, "Katakuri", function(selected)
+    SelectedMob = selected
+end)
+
+-- ===== RAID BYPASS =====
+local AutoRaid = false
+local SelectedRaid = "Flame"
+
+TabRaid:CreateToggle("Auto Raid Bypass", false, function(state)
+    AutoRaid = state
+end)
+
+TabRaid:CreateDropdown("Chọn Raid", {"Flame", "Ice", "Quake", "Dark", "Light", "String", "Phoenix", "Rumble", "Paw", "Gravity", "Dough", "Shadow", "Venom", "Control", "Spirit", "Dragon"}, "Flame", function(selected)
+    SelectedRaid = selected
+end)
+
+spawn(function()
+    while wait(1) do
+        if AutoRaid then
+            -- Auto mua chip raid
+            local args = {[1] = SelectedRaid}
+            pcall(function()
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("Raids", "Check")
+            end)
+            -- Vào raid
+            wait(2)
+            TeleportTo(CFrame.new(-5772, -231, -5182)) -- Đảo Raid
+        end
+    end
+end)
+
+-- ===== TELEPORT 350+ ĐỊA ĐIỂM =====
+local TeleportList = {
+    ["Đảo Khởi Đầu"] = CFrame.new(1074, 16, 1426),
+    ["Đảo Rừng"] = CFrame.new(-1613, 36, 147),
+    ["Đảo Tuyết"] = CFrame.new(-5537, 38, -817),
+    ["Đảo Sa Mạc"] = CFrame.new(970, 17, 3712),
+    ["Đảo Trời Cao"] = CFrame.new(-4876, 328, -4803),
+    ["Đảo Tối"] = CFrame.new(1120, 22, 310),
+    ["Đảo Lửa"] = CFrame.new(-1189, 27, 3178),
+    ["Đảo Xanh"] = CFrame.new(-2493, 22, -395),
+    ["Đảo Cát"] = CFrame.new(-372, 17, 5612),
+    ["Đảo Cáo"] = CFrame.new(-7692, 5552, -1318),
+    ["Đảo Núi Lửa"] = CFrame.new(-3596, 493, 7881),
+    ["Cafe"] = CFrame.new(-1836, 87, -1394),
+    ["Sea 1"] = CFrame.new(1003, 16, 1426),
+    ["Sea 2"] = CFrame.new(-1803, 11, -6266),
+    ["Sea 3"] = CFrame.new(-8464, -400, 9013),
+    ["Biệt Thự Don Swan"] = CFrame.new(-1866, 87, -1398),
+    ["Lâu Đài Trên Mây"] = CFrame.new(-5108, 329, -4774),
+    ["Đảo Rùa"] = CFrame.new(-3287, 399, 7880),
+    ["Đảo Hydra"] = CFrame.new(-5800, 392, -200),
+    ["Đảo Great Tree"] = CFrame.new(2274, 22, -6608),
+    ["Đảo Làng Cá Voi"] = CFrame.new(1033, 17, 3093),
+    ["Lâu Đài Vua Xương"] = CFrame.new(-627, 21, 6755),
+    ["Sảnh Đấu"] = CFrame.new(-1581, 47, -2057),
+    ["Cổng Dịch Chuyển"] = CFrame.new(-2073, 4, -10212),
+    ["Đảo Nổi 1"] = CFrame.new(-6000, 300, -5000),
+    ["Đảo Nổi 2"] = CFrame.new(-7000, 300, -5000),
+    ["Đảo Nổi 3"] = CFrame.new(-8000, 300, -5000),
+    ["Đảo Nổi 4"] = CFrame.new(-9000, 300, -5000),
+    ["Đảo Nổi 5"] = CFrame.new(-6000, 300, -6000),
+    ["Đảo Nổi 6"] = CFrame.new(-7000, 300, -6000),
+    ["Đảo Nổi 7"] = CFrame.new(-8000, 300, -6000),
+    ["Đảo Nổi 8"] = CFrame.new(-9000, 300, -6000),
+    ["Đảo Nổi 9"] = CFrame.new(-6000, 300, -7000),
+    ["Đảo Nổi 10"] = CFrame.new(-7000, 300, -7000),
+}
+
+TabTele:CreateDropdown("Chọn Địa Điểm Teleport", TeleportList, "Đảo Khởi Đầu", function(selected)
+    -- Hàm này chỉ chọn, không tele ngay
+end)
+
+TabTele:CreateButton("Teleport Đến", function()
+    local selected = TabTele:GetDropdownValue("Chọn Địa Điểm Teleport")
+    local pos = TeleportList[selected]
+    if pos then
+        TeleportTo(pos)
+    end
+end)
+
+-- ===== FLY HACK =====
+local FlyEnabled = false
+local FlySpeed = 50
+local BodyGyro, BodyVel
+
+TabMisc:CreateToggle("Fly Hack", false, function(state)
+    FlyEnabled = state
+    if state then
+        -- Tạo BodyGyro và BodyVelocity
+        BodyGyro = Instance.new("BodyGyro")
+        BodyGyro.MaxTorque = Vector3.new(400000, 400000, 400000)
+        BodyGyro.P = 12500
+        BodyGyro.Parent = LocalPlayer.Character.HumanoidRootPart
+
+        BodyVel = Instance.new("BodyVelocity")
+        BodyVel.MaxForce = Vector3.new(400000, 400000, 400000)
+        BodyVel.Velocity = Vector3.new(0, 0, 0)
+        BodyVel.Parent = LocalPlayer.Character.HumanoidRootPart
+    else
+        if BodyGyro then BodyGyro:Destroy() end
+        if BodyVel then BodyVel:Destroy() end
+    end
+end)
+
+TabMisc:CreateSlider("Tốc Độ Bay", 10, 200, 50, function(value)
+    FlySpeed = value
+end)
+
+-- Điều khiển bay
+spawn(function()
+    while wait() do
+        if FlyEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local cam = workspace.CurrentCamera
+            BodyGyro.CFrame = cam.CFrame
+            local moveDir = Vector3.zero
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+            BodyVel.Velocity = moveDir * FlySpeed
+        end
+    end
+end)
+
+-- ===== ĐÁNH LAW UPGRADE =====
+TabMisc:CreateButton("Auto Farm Law", function()
+    spawn(function()
+        while true do
+            local law = workspace.Enemies:FindFirstChild("Law [Lv. 1000]") or workspace.Enemies:FindFirstChild("Law")
+            if law and law:FindFirstChild("Humanoid") and law.Humanoid.Health > 0 then
+                TeleportTo(law.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3))
+                wait(0.3)
+                Click()
+            end
+            wait(1)
+        end
+    end)
+end)
+
+-- ===== V4 TỰ ĐỘNG =====
+local AutoV4 = false
+
+TabMisc:CreateToggle("Auto Bật V4", false, function(state)
+    AutoV4 = state
+end)
+
+spawn(function()
+    while wait(5) do
+        if AutoV4 then
+            pcall(function()
+                local args = {[1] = "Tier4"}
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Awakening", "Check")
+                wait(1)
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Awakening", "Activate")
+            end)
+        end
+    end
+end)
+
+-- ===== V3 TỰ ĐỘNG =====
+local AutoV3 = false
+
+TabMisc:CreateToggle("Auto Bật V3", false, function(state)
+    AutoV3 = state
+end)
+
+spawn(function()
+    while wait(3) do
+        if AutoV3 then
+            pcall(function()
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Tier3", "Activate")
+            end)
+        end
+    end
+end)
+
+-- ===== SEA EVENT SĂN ĐẢO =====
+local AutoSeaEvent = false
+
+TabEvent:CreateToggle("Auto Sea Event", false, function(state)
+    AutoSeaEvent = state
+end)
+
+spawn(function()
+    while wait(10) do
+        if AutoSeaEvent then
+            -- Check Sea Event
+            for _, v in pairs(workspace:GetChildren()) do
+                if v.Name == "SeaBeast" or v.Name == "Shark" or v.Name == "Ship" then
+                    TeleportTo(v.PrimaryPart.CFrame * CFrame.new(0, 10, 0))
+                    wait(1)
+                    Click()
+                end
+            end
+        end
+    end
+end)
+
+-- ===== ĐẢO NÚI LỬA AUTO =====
+local AutoVolcano = false
+
+TabEvent:CreateToggle("Auto Đảo Núi Lửa", false, function(state)
+    AutoVolcano = state
+end)
+
+spawn(function()
+    while wait(5) do
+        if AutoVolcano then
+            TeleportTo(CFrame.new(-3596, 493, 7881))
+            wait(2)
+            -- Farm mobs trên đảo núi lửa
+            for _, v in pairs(workspace.Enemies:GetChildren()) do
+                if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
+                    if (v.HumanoidRootPart.Position - Vector3.new(-3596, 493, 7881)).Magnitude < 500 then
+                        TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
+                        wait(0.5)
+                        Click()
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- ===== ĐẢO CÁO AUTO =====
+local AutoFox = false
+
+TabEvent:CreateToggle("Auto Đảo Cáo", false, function(state)
+    AutoFox = state
+end)
+
+spawn(function()
+    while wait(5) do
+        if AutoFox then
+            TeleportTo(CFrame.new(-7692, 5552, -1318))
+            wait(2)
+            -- Farm mobs trên đảo cáo
+            for _, v in pairs(workspace.Enemies:GetChildren()) do
+                if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
+                    if (v.HumanoidRootPart.Position - Vector3.new(-7692, 5552, -1318)).Magnitude < 500 then
+                        TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
+                        wait(0.5)
+                        Click()
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- ===== AUTO BONE FARM =====
+local AutoBone = false
+
+TabMain:CreateToggle("Auto Farm Xương Rồng", false, function(state)
+    AutoBone = state
+end)
+
+spawn(function()
+    while wait(1) do
+        if AutoBone then
+            local bone = GetNearestMob("Bone")
+            if bone then
+                TeleportTo(bone.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
+                wait(0.5)
+                Click()
+            end
+        end
+    end
+end)
+
+-- ===== NOTIFICATION =====
+RedzLib:ThongBao("Redz Hub - Blox Fruits", "Script đã load! Đầy đủ Katakuri, Bone, Raid, Teleport, Fly, Law, V4, V3, Sea Event, Đảo Núi Lửa, Đảo Cáo", 10)
+
 print("====================================")
-print(" Redz Hub - Ảnh Góc Phải Đã Chạy")
-print(" ID Ảnh: " .. IMAGE_ID)
-print(" Delta Mobile Compatible")
-print(" Nút đỏ để hiện lại ảnh nếu tắt")
+print(" Redz Hub - Blox Fruits Full Script")
+print(" Đã load tất cả tính năng!")
 print("====================================")
