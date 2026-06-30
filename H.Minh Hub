@@ -20,7 +20,7 @@ local TabChinh = CuaSo:CreateTab("Xem Ảnh")
 TabChinh:CreateLabel("Ảnh Redz Hub Script")
 
 -- ===== LINK ẢNH CỐ ĐỊNH =====
-local linkAnh = "https://i.pinimg.com/736x/0d/8a/b0/0d8ab0a08d625be34a58ca045c0ec9cf.jpg"
+local linkAnh = "129898296854108"
 -- ============================
 
 -- Tạo khung chứa ảnh ở góc phải màn hình
