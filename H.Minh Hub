@@ -1,0 +1,146 @@
+--[[
+    Script Redz Hub Tiếng Việt - Hiển Thị Ảnh Góc Phải Màn Hình
+    Link ảnh: Redz Hub Script Banner
+    Thư viện: RedzLib (Redz Hub)
+--]]
+
+-- Load thư viện Redz Hub
+local RedzLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/REDzHUB/RedzLib/main/Library.lua"))()
+
+-- Tạo cửa sổ chính
+local CuaSo = RedzLib:CreateWindow(
+    "Redz Hub Tiếng Việt",
+    "Trình Xem Ảnh Góc Phải",
+    Vector2.new(400, 300),
+    Enum.KeyCode.RightControl
+)
+
+-- Tab chính
+local TabChinh = CuaSo:CreateTab("Xem Ảnh")
+TabChinh:CreateLabel("Ảnh Redz Hub Script")
+
+-- ===== LINK ẢNH CỐ ĐỊNH =====
+local linkAnh = "https://i.pinimg.com/736x/0d/8a/b0/0d8ab0a08d625be34a58ca045c0ec9cf.jpg"
+-- ============================
+
+-- Tạo khung chứa ảnh ở góc phải màn hình
+local KhungChua = Instance.new("Frame")
+KhungChua.Name = "KhungAnhRedz"
+KhungChua.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+KhungChua.BorderSizePixel = 0
+KhungChua.Size = UDim2.new(0, 310, 0, 310)
+KhungChua.Position = UDim2.new(1, -320, 0, 10)
+KhungChua.AnchorPoint = Vector2.new(0, 0)
+KhungChua.ClipsDescendants = true
+
+-- Bo góc khung
+local BoGoc = Instance.new("UICorner")
+BoGoc.CornerRadius = UDim.new(0, 8)
+BoGoc.Parent = KhungChua
+
+-- Đổ bóng khung
+local DoBong = Instance.new("UIStroke")
+DoBong.Thickness = 2
+DoBong.Color = Color3.fromRGB(255, 50, 50)
+DoBong.Parent = KhungChua
+
+-- Tạo ảnh hiển thị bên trong khung
+local AnhHienThi = Instance.new("ImageLabel")
+AnhHienThi.Name = "AnhChinh"
+AnhHienThi.Image = linkAnh
+AnhHienThi.BackgroundTransparency = 1
+AnhHienThi.Size = UDim2.new(1, -10, 1, -10)
+AnhHienThi.Position = UDim2.new(0, 5, 0, 5)
+AnhHienThi.ScaleType = Enum.ScaleType.Fit
+AnhHienThi.Parent = KhungChua
+
+-- Thêm tiêu đề nhỏ trên ảnh
+local TieuDe = Instance.new("TextLabel")
+TieuDe.Name = "TieuDeAnh"
+TieuDe.Text = "Redz Hub Script"
+TieuDe.TextColor3 = Color3.fromRGB(255, 255, 255)
+TieuDe.TextStrokeTransparency = 0.3
+TieuDe.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+TieuDe.BackgroundTransparency = 0.5
+TieuDe.Size = UDim2.new(1, -10, 0, 25)
+TieuDe.Position = UDim2.new(0, 5, 1, -30)
+TieuDe.Font = Enum.Font.GothamBold
+TieuDe.TextSize = 14
+TieuDe.Parent = KhungChua
+
+-- Bo góc tiêu đề
+local BoGocTieuDe = Instance.new("UICorner")
+BoGocTieuDe.CornerRadius = UDim.new(0, 4)
+BoGocTieuDe.Parent = TieuDe
+
+-- Đưa khung vào CoreGui
+local RedzCoreGui = game:GetService("CoreGui"):FindFirstChild("RedzHub") or game:GetService("CoreGui")
+KhungChua.Parent = RedzCoreGui
+
+-- ===== CHỨC NĂNG KÉO THẢ ẢNH =====
+local DangKeo = false
+local ViTriChuotBD = Vector2.new(0, 0)
+local ViTriKhungBD = Vector2.new(0, 0)
+
+KhungChua.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        DangKeo = true
+        ViTriChuotBD = input.Position
+        ViTriKhungBD = KhungChua.AbsolutePosition
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                DangKeo = false
+            end
+        end)
+    end
+end)
+
+KhungChua.InputChanged:Connect(function(input)
+    if DangKeo and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - ViTriChuotBD
+        KhungChua.Position = UDim2.new(0, ViTriKhungBD.X + delta.X, 0, ViTriKhungBD.Y + delta.Y)
+    end
+end)
+
+-- ===== BIẾN TRẠNG THÁI =====
+local HienAnh = true
+
+-- ===== NÚT ĐIỀU KHIỂN =====
+TabChinh:CreateButton("Ẩn/Hiện Ảnh 🔄", function()
+    HienAnh = not HienAnh
+    KhungChua.Visible = HienAnh
+end)
+
+TabChinh:CreateSlider("Kích Thước Ảnh 📏", 100, 500, 300, function(giaTri)
+    KhungChua.Size = UDim2.new(0, giaTri + 10, 0, giaTri + 10)
+end)
+
+TabChinh:CreateSlider("Độ Trong Suốt 👁️", 0, 1, 1, function(giaTri)
+    KhungChua.BackgroundTransparency = 1 - giaTri
+    AnhHienThi.ImageTransparency = 1 - giaTri
+end)
+
+TabChinh:CreateButton("Đặt Lại Góc Phải 🔄", function()
+    KhungChua.Position = UDim2.new(1, -320, 0, 10)
+end)
+
+TabChinh:CreateButton("Tải Lại Ảnh 🔄", function()
+    AnhHienThi.Image = ""
+    wait(0.1)
+    AnhHienThi.Image = linkAnh
+end)
+
+-- ===== THÔNG BÁO KHỞI TẠO =====
+RedzLib:ThongBao(
+    "Redz Hub - Ảnh Góc Phải",
+    "Đã tải ảnh Redz Hub Script! Xem ở góc phải màn hình.",
+    5
+)
+
+-- ===== IN THÔNG TIN RA CONSOLE =====
+print("====================================")
+print(" Redz Hub - Script Ảnh Góc Phải")
+print(" Link: " .. linkAnh)
+print(" Trạng thái: Đã sẵn sàng")
+print(" Kéo thả ảnh để di chuyển")
+print("====================================")
